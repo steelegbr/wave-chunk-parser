@@ -131,3 +131,8 @@ dmypy.json
 # VSCode
 
 .vscode/
+
+# macOS
+
+.DS_Store
+coverage.xml

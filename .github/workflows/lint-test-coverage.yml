@@ -1,6 +1,10 @@
 name: linting-test-coverage
 on: [push]
 
+env:
+  PYTHON_VER: 3.9
+  DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}
+
 jobs:
   linting:
     runs-on: ubuntu-latest
@@ -11,3 +15,24 @@ jobs:
         uses: lgeiger/black-action@master
         with:
           args: ". --check"
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the commit
+        uses: actions/checkout@v1
+      - name: Install Python ${{ env.PYTHON_VER }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ env.PYTHON_VER }}
+      - name: Install dependancies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Python unit tests
+        run: |
+          coverage run -m unittest
+          coverage xml
+      - name: Test coverage to deepsource.io
+        run: |
+          curl https://deepsource.io/cli | sh
+          ./bin/deepsource report --analyzer test-coverage --key python --value-file ./coverage.xml
