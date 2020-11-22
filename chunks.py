@@ -37,7 +37,7 @@ class Chunk(ABC):
     @classmethod
     @abstractmethod
     def from_file(
-        file_handle: BinaryIO, offset: int, endiness: str = "little"
+        cls, file_handle: BinaryIO, offset: int, endiness: str = "little"
     ) -> Chunk:
         """
         Creates a chunk from a file.
@@ -93,7 +93,7 @@ class FormatChunk(Chunk):
 
     def __init__(
         self,
-        format: WaveFormat,
+        wave_format: WaveFormat,
         extended: bool,
         channels: int,
         sample_rate: int,
@@ -110,7 +110,7 @@ class FormatChunk(Chunk):
             bits_per_sample (int): The number of bits in each sample.
         """
 
-        self.__format = format
+        self.__format = wave_format
         self.__extended = extended
         self.__channels = channels
         self.__sample_rate = sample_rate
@@ -214,6 +214,7 @@ class FormatChunk(Chunk):
         """
         return self.__extended
 
+    @property
     def get_name(self) -> str:
         return self.HEADER_FORMAT
 

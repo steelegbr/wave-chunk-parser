@@ -1,5 +1,4 @@
 from chunks import FormatChunk, WaveFormat
-import os
 from parameterized import parameterized
 from unittest import TestCase
 
