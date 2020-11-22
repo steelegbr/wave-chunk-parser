@@ -143,7 +143,7 @@ class FormatChunk(Chunk):
             cls.LENGTH_FORMAT_CODE,
             endiness,
         )
-        format = WaveFormat(handle)
+        wave_format = WaveFormat(handle)
 
         # Number of channels, sample rate, etc.
 
@@ -163,7 +163,9 @@ class FormatChunk(Chunk):
             endiness,
         )
 
-        return FormatChunk(format, extended, channels, sample_rate, bits_per_sample)
+        return FormatChunk(
+            wave_format, extended, channels, sample_rate, bits_per_sample
+        )
 
     @property
     def format(self) -> WaveFormat:
