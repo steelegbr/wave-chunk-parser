@@ -1,6 +1,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum
+from exceptions import ExportExtendedFormatException, InvalidHeaderException
 from typing import BinaryIO, List
 from utils import seek_and_read, seek_and_read_int
 
@@ -82,6 +83,7 @@ class FormatChunk(Chunk):
     LENGTH_BYTE_RATE = 2
     LENGTH_BLOCK_ALIGN = 2
     LENGTH_BITS_PER_SAMPLE = 2
+    LENGTH_STANDARD_SIZE = 16
     OFFSET_FORMAT_CODE = 8
     OFFSET_CHANNELS = 10
     OFFSET_SAMPLE_RATE = 12
@@ -126,14 +128,14 @@ class FormatChunk(Chunk):
         header_bytes = seek_and_read(file_handle, offset, cls.LENGTH_HEADER)
         header_str = header_bytes.decode("ASCII")
         if not header_str == cls.HEADER_FORMAT:
-            raise ValueError("Format chunk must start with fmt")
+            raise InvalidHeaderException("Format chunk must start with fmt")
 
         # Check the length
 
         length = seek_and_read_int(
             file_handle, offset + cls.OFFSET_LENGTH, cls.LENGTH_LENGTH, endiness
         )
-        extended = length > 16
+        extended = length > cls.LENGTH_STANDARD_SIZE
 
         # Read the format
 
@@ -221,4 +223,24 @@ class FormatChunk(Chunk):
         return self.HEADER_FORMAT
 
     def to_bytes(self) -> List[bytes]:
-        pass
+        
+        # Sanity check
+
+        if self.extended:
+            raise ExportExtendedFormatException("We don't support converting extended format headers to binary blobs.")
+
+        # Start with the header
+
+        chunk = []
+
+        chunk.append(self.HEADER_FORMAT.encode("ASCII"))
+        chunk.append(bytes(self.LENGTH_STANDARD_SIZE))
+        chunk.append(bytes(self.format.value))
+        chunk.append(bytes(self.channels))
+        chunk.append(bytes(self.sample_rate))
+        chunk.append(bytes(self.byte_rate))
+        chunk.append(bytes(self.block_align))
+        chunk.append(bytes(self.bits_per_sample))
+
+        return b"".join(chunk)
+
