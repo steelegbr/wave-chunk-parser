@@ -1,4 +1,4 @@
-from exceptions import InvalidHeaderException
+from exceptions import ExportExtendedFormatException, InvalidHeaderException
 from chunks import FormatChunk, WaveFormat
 from parameterized import parameterized
 from unittest import TestCase
@@ -45,7 +45,7 @@ class TestFormatChunk(TestCase):
             # Assert
 
             self.assertIsNotNone(chunk)
-            self.assertEqual(chunk.get_name, "fmt ")
+            self.assertEqual(chunk.get_name, b"fmt ")
             self.assertEqual(chunk.format, expected_format)
             self.assertEqual(chunk.channels, expected_channels)
             self.assertEqual(chunk.sample_rate, expected_sample_rate)
@@ -74,8 +74,85 @@ class TestFormatChunk(TestCase):
             # Act
 
             with self.assertRaises(InvalidHeaderException) as context:
-                chunk: FormatChunk = FormatChunk.from_file(file, chunk_offset)
+                FormatChunk.from_file(file, chunk_offset)
 
                 # Assert
 
                 self.assertIn("Format chunk must start with fmt", context.exception)
+
+    @parameterized.expand(
+        [
+            (
+                WaveFormat.PCM,
+                False,
+                2,
+                48000,
+                16,
+                b"fmt \x10\x00\x00\x00\x01\x00\x02\x00\x80\xbb\x00\x00\x00\xee\x02\x00\x04\x00\x10\x00",
+            ),
+            (
+                WaveFormat.A_LAW,
+                False,
+                1,
+                8000,
+                8,
+                b"fmt \x10\x00\x00\x00\x06\x00\x01\x00@\x1f\x00\x00@\x1f\x00\x00\x01\x00\x08\x00",
+            ),
+            (
+                WaveFormat.MU_LAW,
+                False,
+                4,
+                44100,
+                16,
+                b"fmt \x10\x00\x00\x00\x07\x00\x04\x00D\xac\x00\x00 b\x05\x00\x08\x00\x10\x00",
+            ),
+        ]
+    )
+    def test_encode_chunk(
+        self,
+        wave_format,
+        extended,
+        channels,
+        sample_rate,
+        bits_per_sample,
+        expected_bytes: bytes,
+    ):
+        """
+        The format chunk encodes correctly.
+        """
+
+        # Arrage
+
+        chunk = FormatChunk(
+            wave_format, extended, channels, sample_rate, bits_per_sample
+        )
+
+        # Act
+
+        converted = chunk.to_bytes()
+        print(converted)
+
+        # Assert
+
+        self.assertEqual(converted, expected_bytes)
+
+    def test_fail_encode_extended_format(self):
+        """
+        We don't successfully encode an extended format chunk.
+        """
+
+        # Arrange
+
+        chunk = FormatChunk(WaveFormat.EXTENDED, True, 2, 48000, 16)
+
+        # Act
+
+        with self.assertRaises(ExportExtendedFormatException) as context:
+            chunk.to_bytes()
+
+            # Assert
+
+            self.assertIn(
+                "We don't support converting extended format headers to binary blobs.",
+                context.exception,
+            )
