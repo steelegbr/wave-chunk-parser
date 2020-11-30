@@ -1,8 +1,10 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import BinaryIO, List
-from utils import seek_and_read, seek_and_read_int
+from exceptions import ExportExtendedFormatException, InvalidHeaderException
+from struct import unpack, pack
+from typing import BinaryIO, List, Tuple
+from utils import seek_and_read
 
 
 class Chunk(ABC):
@@ -10,9 +12,32 @@ class Chunk(ABC):
     Base class for wave file chunks. We base all other chunks on this.
     """
 
-    LENGTH_HEADER = 4
-    LENGTH_LENGTH = 4
-    OFFSET_LENGTH = 4
+    OFFSET_CHUNK_CONTENT = 8
+
+    @classmethod
+    def read_header(
+        cls, file_handle: BinaryIO, offset: int, endianess: str = "little"
+    ) -> Tuple[str, int]:
+        """
+        Reads the headed from a chunk.
+
+        Args:
+            file_handle (BinaryIO): The IO stream to read from.
+            offset (int): The offset to read at.
+            endianess (str, optional): The endianess of the file.. Defaults to "little".
+
+        Returns:
+            Tuple[str, int]: The name of the chunk and the declared length.
+        """
+
+        if endianess == "little":
+            unpack_string = "<4sI"
+        else:
+            unpack_string = ">4sI"
+
+        return unpack(
+            unpack_string, seek_and_read(file_handle, offset, cls.OFFSET_CHUNK_CONTENT)
+        )
 
     @property
     @abstractmethod
@@ -24,9 +49,12 @@ class Chunk(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def to_bytes(self) -> List[bytes]:
+    def to_bytes(self, endianess: str = "little") -> List[bytes]:
         """
         Encodes the chunck to a byte array for writing to a file.
+
+        Args:
+            endianess (str): The endianess of the chunk we're encoding.
 
         Returns:
             List[bytes]: The encoded chunk.
@@ -37,7 +65,7 @@ class Chunk(ABC):
     @classmethod
     @abstractmethod
     def from_file(
-        cls, file_handle: BinaryIO, offset: int, endiness: str = "little"
+        cls, file_handle: BinaryIO, offset: int, endianess: str = "little"
     ) -> Chunk:
         """
         Creates a chunk from a file.
@@ -45,7 +73,7 @@ class Chunk(ABC):
         Args:
             file_handle (BinaryIO): The file handle to use.
             offset (int): The offset in the file this chunk is at.
-            endiness (str): "big" or "small" - the endianess of the file.
+            endianess (str): "big" or "small" - the endianess of the file.
 
         Returns:
             Chunk: We expect a subclass of Chunk to be returned.
@@ -76,20 +104,9 @@ class FormatChunk(Chunk):
     __sample_rate: int
     __bits_per_sample: int
 
-    LENGTH_FORMAT_CODE = 2
-    LENGTH_CHANNELS = 2
-    LENGTH_SAMPLE_RATE = 2
-    LENGTH_BYTE_RATE = 2
-    LENGTH_BLOCK_ALIGN = 2
-    LENGTH_BITS_PER_SAMPLE = 2
-    OFFSET_FORMAT_CODE = 8
-    OFFSET_CHANNELS = 10
-    OFFSET_SAMPLE_RATE = 12
-    OFFSET_BYTE_RATE = 16
-    OFFSET_BLOCK_ALIGN = 20
-    OFFSET_BITS_PER_SAMPLE = 22
-
-    HEADER_FORMAT = "fmt "
+    LENGTH_CHUNK = 24
+    LENGTH_STANDARD_SIZE = 16
+    HEADER_FORMAT = b"fmt "
 
     def __init__(
         self,
@@ -118,50 +135,41 @@ class FormatChunk(Chunk):
 
     @classmethod
     def from_file(
-        cls, file_handle: BinaryIO, offset: int, endiness: str = "little"
+        cls, file_handle: BinaryIO, offset: int, endianess: str = "little"
     ) -> FormatChunk:
 
         # Sanity check
 
-        header_bytes = seek_and_read(file_handle, offset, cls.LENGTH_HEADER)
-        header_str = header_bytes.decode("ASCII")
+        (header_str, length) = cls.read_header(file_handle, offset, endianess)
+
         if not header_str == cls.HEADER_FORMAT:
-            raise ValueError("Format chunk must start with fmt")
+            raise InvalidHeaderException("Format chunk must start with fmt")
 
         # Check the length
 
-        length = seek_and_read_int(
-            file_handle, offset + cls.OFFSET_LENGTH, cls.LENGTH_LENGTH, endiness
+        extended = length > cls.LENGTH_STANDARD_SIZE
+
+        # Read from the chunk
+
+        if endianess == "little":
+            unpack_string = "<HHIIHH"
+        else:
+            unpack_string = ">HHIIHH"
+
+        (handle, channels, sample_rate, _, _, bits_per_sample,) = unpack(
+            unpack_string,
+            seek_and_read(
+                file_handle,
+                offset + cls.OFFSET_CHUNK_CONTENT,
+                cls.LENGTH_CHUNK - cls.OFFSET_CHUNK_CONTENT,
+            ),
         )
-        extended = length > 16
 
         # Read the format
 
-        handle = seek_and_read_int(
-            file_handle,
-            offset + cls.OFFSET_FORMAT_CODE,
-            cls.LENGTH_FORMAT_CODE,
-            endiness,
-        )
         wave_format = WaveFormat(handle)
 
-        # Number of channels, sample rate, etc.
-
-        channels = seek_and_read_int(
-            file_handle, offset + cls.OFFSET_CHANNELS, cls.LENGTH_CHANNELS, endiness
-        )
-        sample_rate = seek_and_read_int(
-            file_handle,
-            offset + cls.OFFSET_SAMPLE_RATE,
-            cls.LENGTH_SAMPLE_RATE,
-            endiness,
-        )
-        bits_per_sample = seek_and_read_int(
-            file_handle,
-            offset + cls.OFFSET_BITS_PER_SAMPLE,
-            cls.LENGTH_BITS_PER_SAMPLE,
-            endiness,
-        )
+        # Generate our object
 
         return FormatChunk(
             wave_format, extended, channels, sample_rate, bits_per_sample
@@ -220,5 +228,30 @@ class FormatChunk(Chunk):
     def get_name(self) -> str:
         return self.HEADER_FORMAT
 
-    def to_bytes(self) -> List[bytes]:
-        pass
+    def to_bytes(self, endianess: str = "little") -> List[bytes]:
+
+        # Sanity check
+
+        if self.extended:
+            raise ExportExtendedFormatException(
+                "We don't support converting extended format headers to binary blobs."
+            )
+
+        # Build up our chunk
+
+        if endianess == "little":
+            pack_string = "<4sIHHIIHH"
+        else:
+            pack_string = ">4sIHHIIHH"
+
+        return pack(
+            pack_string,
+            self.HEADER_FORMAT,
+            self.LENGTH_STANDARD_SIZE,
+            self.format.value,
+            self.channels,
+            self.sample_rate,
+            self.byte_rate,
+            self.block_align,
+            self.bits_per_sample,
+        )

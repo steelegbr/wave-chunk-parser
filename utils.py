@@ -29,22 +29,3 @@ def seek_and_read(file_handle: BinaryIO, start: int, length: int) -> bytes:
 
     file_handle.seek(start)
     return file_handle.read(length)
-
-
-def seek_and_read_int(
-    file_handle: BinaryIO, start: int, length: int, endiness: str
-) -> int:
-    """
-    Seeks and reads an integer value from an IO stream.
-
-    Args:
-        file_handle (BinaryIO): The IO stream to read from.
-        start (int): The offset to read the integer from.
-        length (int): The length of the integer (in bytes).
-        endiness (str): The endianess of the stream.
-
-    Returns:
-        int: The integer value read from the stream.
-    """
-
-    return int.from_bytes(seek_and_read(file_handle, start, length), endiness)
