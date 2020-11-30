@@ -130,7 +130,6 @@ class TestFormatChunk(TestCase):
         # Act
 
         converted = chunk.to_bytes()
-        print(converted)
 
         # Assert
 
