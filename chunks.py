@@ -15,33 +15,25 @@ class Chunk(ABC):
     OFFSET_CHUNK_CONTENT = 8
 
     @classmethod
-    def read_header(
-        cls, file_handle: BinaryIO, offset: int, endianess: str = "little"
-    ) -> Tuple[str, int]:
+    def read_header(cls, file_handle: BinaryIO, offset: int) -> Tuple[str, int]:
         """
         Reads the headed from a chunk.
 
         Args:
             file_handle (BinaryIO): The IO stream to read from.
             offset (int): The offset to read at.
-            endianess (str, optional): The endianess of the file.. Defaults to "little".
 
         Returns:
             Tuple[str, int]: The name of the chunk and the declared length.
         """
 
-        if endianess == "little":
-            unpack_string = "<4sI"
-        else:
-            unpack_string = ">4sI"
-
         return unpack(
-            unpack_string, seek_and_read(file_handle, offset, cls.OFFSET_CHUNK_CONTENT)
+            "<4sI", seek_and_read(file_handle, offset, cls.OFFSET_CHUNK_CONTENT)
         )
 
     @property
     @abstractmethod
-    def get_name(self) -> str:
+    def get_name(self) -> str:  # pragma: no cover
         """
         Returns the name of the chunk type.
         """
@@ -49,12 +41,9 @@ class Chunk(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def to_bytes(self, endianess: str = "little") -> List[bytes]:
+    def to_bytes(self) -> List[bytes]:  # pragma: no cover
         """
         Encodes the chunck to a byte array for writing to a file.
-
-        Args:
-            endianess (str): The endianess of the chunk we're encoding.
 
         Returns:
             List[bytes]: The encoded chunk.
@@ -64,16 +53,13 @@ class Chunk(ABC):
 
     @classmethod
     @abstractmethod
-    def from_file(
-        cls, file_handle: BinaryIO, offset: int, endianess: str = "little"
-    ) -> Chunk:
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> Chunk:  # pragma: no cover
         """
         Creates a chunk from a file.
 
         Args:
             file_handle (BinaryIO): The file handle to use.
             offset (int): The offset in the file this chunk is at.
-            endianess (str): "big" or "small" - the endianess of the file.
 
         Returns:
             Chunk: We expect a subclass of Chunk to be returned.
@@ -134,13 +120,11 @@ class FormatChunk(Chunk):
         self.__bits_per_sample = bits_per_sample
 
     @classmethod
-    def from_file(
-        cls, file_handle: BinaryIO, offset: int, endianess: str = "little"
-    ) -> FormatChunk:
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> FormatChunk:
 
         # Sanity check
 
-        (header_str, length) = cls.read_header(file_handle, offset, endianess)
+        (header_str, length) = cls.read_header(file_handle, offset)
 
         if not header_str == cls.HEADER_FORMAT:
             raise InvalidHeaderException("Format chunk must start with fmt")
@@ -151,13 +135,8 @@ class FormatChunk(Chunk):
 
         # Read from the chunk
 
-        if endianess == "little":
-            unpack_string = "<HHIIHH"
-        else:
-            unpack_string = ">HHIIHH"
-
         (handle, channels, sample_rate, _, _, bits_per_sample,) = unpack(
-            unpack_string,
+            "<HHIIHH",
             seek_and_read(
                 file_handle,
                 offset + cls.OFFSET_CHUNK_CONTENT,
@@ -228,7 +207,7 @@ class FormatChunk(Chunk):
     def get_name(self) -> str:
         return self.HEADER_FORMAT
 
-    def to_bytes(self, endianess: str = "little") -> List[bytes]:
+    def to_bytes(self) -> List[bytes]:
 
         # Sanity check
 
@@ -239,13 +218,8 @@ class FormatChunk(Chunk):
 
         # Build up our chunk
 
-        if endianess == "little":
-            pack_string = "<4sIHHIIHH"
-        else:
-            pack_string = ">4sIHHIIHH"
-
         return pack(
-            pack_string,
+            "<4sIHHIIHH",
             self.HEADER_FORMAT,
             self.LENGTH_STANDARD_SIZE,
             self.format.value,
