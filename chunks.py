@@ -2,6 +2,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum
 from exceptions import ExportExtendedFormatException, InvalidHeaderException
+import numpy as np
 from struct import unpack, pack
 from typing import BinaryIO, List, Tuple
 from utils import seek_and_read
@@ -229,3 +230,93 @@ class FormatChunk(Chunk):
             self.block_align,
             self.bits_per_sample,
         )
+
+
+class DataChunk(Chunk):
+    """
+    The data chunk holding the actual audio sample vectors.
+    """
+
+    __samples: np.ndarray[np.int]
+
+    HEADER_DATA = b"data"
+
+    def __init__(self, samples: np.ndarray[np.int]):
+        """
+        Creates a new instance of the data chunk.
+
+        Args:
+            samples (np.ndarray[np.int]): The samples to work with.
+        """
+
+        self.__samples = samples
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> Chunk:
+        raise NotImplementedError(
+            "You must call from_file_with_format on a data chunk."
+        )
+
+    @classmethod
+    def from_file_with_format(
+        cls, file_handle: BinaryIO, offset: int, format: FormatChunk
+    ) -> Chunk:
+        """
+        Reads the data chunk from a file with the supplied format.
+
+        Args:
+            file_handle (BinaryIO): The file to read in.
+            offset (int): The offset to read from.
+            format (FormatChunk): The format of the file.
+
+        Returns:
+            Chunk: The decoded data chunk.
+        """
+
+        # Sanity check
+
+        (header_str, length) = cls.read_header(file_handle, offset)
+        if not header_str == cls.HEADER_DATA:
+            raise InvalidHeaderException("Data chunk must start with data")
+
+        # Check we have a format
+
+        if not format:
+            raise ValueError("You must supply a valid format to read the data chunk as")
+
+        # Create the object
+
+        sample_count = length // format.channels // (format.bits_per_sample // 8)
+        samples = np.memmap(
+            file_handle,
+            dtype=np.dtype(f"<i{format.bits_per_sample // 8}"),
+            mode="c",
+            shape=(sample_count, format.channels),
+        )
+
+        return DataChunk(samples)
+
+    @property
+    def samples(self) -> np.ndarray[np.int]:
+        """
+        The audio sample vectors.
+        """
+        return self.__samples
+
+    def to_bytes(self) -> List[bytes]:
+
+        # Generate the data section
+
+        data = self.__samples.tobytes()
+
+        # Generate the header
+
+        header = pack("<4sI", self.HEADER_DATA, len(data))
+
+        # Splatter it together
+
+        return b"".join([header, data])
+
+    @property
+    def get_name(self) -> str:
+        return self.HEADER_DATA
