@@ -259,7 +259,7 @@ class DataChunk(Chunk):
 
     @classmethod
     def from_file_with_format(
-        cls, file_handle: BinaryIO, offset: int, format: FormatChunk
+        cls, file_handle: BinaryIO, offset: int, wave_format: FormatChunk
     ) -> Chunk:
         """
         Reads the data chunk from a file with the supplied format.
@@ -281,17 +281,19 @@ class DataChunk(Chunk):
 
         # Check we have a format
 
-        if not format:
+        if not wave_format:
             raise ValueError("You must supply a valid format to read the data chunk as")
 
         # Create the object
 
-        sample_count = length // format.channels // (format.bits_per_sample // 8)
+        sample_count = (
+            length // wave_format.channels // (wave_format.bits_per_sample // 8)
+        )
         samples = np.memmap(
             file_handle,
-            dtype=np.dtype(f"<i{format.bits_per_sample // 8}"),
+            dtype=np.dtype(f"<i{wave_format.bits_per_sample // 8}"),
             mode="c",
-            shape=(sample_count, format.channels),
+            shape=(sample_count, wave_format.channels),
         )
 
         return DataChunk(samples)

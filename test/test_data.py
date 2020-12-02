@@ -21,7 +21,7 @@ class TestDataChunk(TestCase):
         self,
         file_name: str,
         chunk_offset: int,
-        format: FormatChunk,
+        wave_format: FormatChunk,
         expected_shape: Tuple[int, int],
     ):
         """
@@ -35,7 +35,7 @@ class TestDataChunk(TestCase):
             # Act
 
             chunk: DataChunk = DataChunk.from_file_with_format(
-                file, chunk_offset, format
+                file, chunk_offset, wave_format
             )
             samples = chunk.samples
 
@@ -55,7 +55,7 @@ class TestDataChunk(TestCase):
         ]
     )
     def test_read_wrong_chunk(
-        self, file_name: str, chunk_offset: int, format: FormatChunk
+        self, file_name: str, chunk_offset: int, wave_format: FormatChunk
     ):
         """
         An appropriate error is raised if the wrong chunk is read.
@@ -68,7 +68,7 @@ class TestDataChunk(TestCase):
             # Act
 
             with self.assertRaises(InvalidHeaderException) as context:
-                DataChunk.from_file_with_format(file, chunk_offset, format)
+                DataChunk.from_file_with_format(file, chunk_offset, wave_format)
 
                 # Assert
 
