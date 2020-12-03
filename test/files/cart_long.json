@@ -1,0 +1,32 @@
+{
+    "version": "0101",
+    "title": "This is a çárt with a really long title that should be trunkated when encoding but we'll have to wait an see if it really wörkß!",
+    "artist": "This is a çárt with a really long artist name that should be trunkated when encoding but we'll have to wait an see if it really wörkß!",
+    "cut_id": "LONGCART",
+    "client_id": "Biscuit Muncher",
+    "category": "DEMO",
+    "classification": "Demo and sample files",
+    "out_cue": "Nom Nom Nom!",
+    "start_date": "1900/01/0100:00:00",
+    "end_date": "2099/12/3123:59:59",
+    "producer_app": "Hand Crafted",
+    "producer_app_version": "MK1 Eyeball",
+    "user_defined": "Some stuff goes in here....",
+    "ref_0db": 32768,
+    "timers": [
+        {
+            "name": "INTs",
+            "time": 0
+        },
+        {
+            "name": "INTe",
+            "time": 1024
+        },
+        {
+            "name": "SEG ",
+            "time": 2048
+        }
+    ],
+    "url": "http://www.example.com/",
+    "tag_text": "A load of junk goes in here.\r\n"
+}

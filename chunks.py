@@ -1,11 +1,16 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from datetime import datetime
 from enum import Enum
-from exceptions import ExportExtendedFormatException, InvalidHeaderException
+from exceptions import (
+    ExportExtendedFormatException,
+    InvalidHeaderException,
+    InvalidTimerException,
+)
 import numpy as np
 from struct import unpack, pack
 from typing import BinaryIO, List, Tuple
-from utils import seek_and_read
+from utils import decode_string, encode_string, seek_and_read
 
 
 class Chunk(ABC):
@@ -322,3 +327,540 @@ class DataChunk(Chunk):
     @property
     def get_name(self) -> str:
         return self.HEADER_DATA
+
+
+class CartTimer:
+    """
+    A timer associated with a cart.
+    """
+
+    __name: str
+    __time: int
+
+    __permitted_prefixes = ["SEG", "AUD", "INT", "OUT", "SEC", "TER", "MRK", "EOD"]
+    __permitted_start_end = ["SEG", "AUD", "INT", "OUT", "SEC", "TER"]
+    __permitted_enumerated = ["SEG", "INT", "OUT", "SEC", "TER", "MRK"]
+
+    def __init__(self, name: str, time: int):
+
+        # Sanity checks
+
+        if not name or not len(name) == 4:
+            raise InvalidTimerException("No timer name supplied")
+
+        prefix = name[0:3]
+        suffix = name[-1]
+
+        if prefix not in self.__permitted_prefixes:
+            raise InvalidTimerException(f"{prefix} is not a valid timer prefix")
+
+        if suffix in ("s", "e") and prefix not in self.__permitted_start_end:
+            raise InvalidTimerException(
+                f"{prefix} timers cannot have start or end suffixes"
+            )
+
+        if suffix.isnumeric() and prefix not in self.__permitted_enumerated:
+            raise InvalidTimerException(f"{prefix} timers cannot be enumerated")
+
+        #  If we get this far, we're good to go
+
+        self.__name = name
+        self.__time = time
+
+    @classmethod
+    def from_cart_parts(cls, timer_parts: List[Tuple[str, int]]) -> List[CartTimer]:
+        """
+        Builds up a list of timers from given cart parts.
+
+        Args:
+            timer_parts (List[Tuple[str, int]]): Tuples of timer name and values.
+
+        Returns:
+            List[CartTimer]: The list of valid decoded timers.
+        """
+
+        timers = []
+
+        for timer_part in timer_parts:
+            try:
+                (name, time) = timer_part
+                timers.append(CartTimer(decode_string(name), time))
+            except InvalidTimerException:
+                # Do this to ignore bad timers!
+                pass
+
+        return timers
+
+    @property
+    def name(self) -> str:
+        """
+        The name of the timer.
+        """
+        return self.__name
+
+    @property
+    def time(self) -> int:
+        """
+        The time in samples.
+        """
+        return self.__time
+
+
+class CartChunk(Chunk):
+    """
+    Broadcast cart chunk.
+    """
+
+    LENGTH_MINIMUM = 2048
+    HEADER_CART = b"cart"
+    DEFAULT_VERSION = b"0101"
+    FORMAT_DATE_TIME = "%Y/%m/%d%H:%M:%S"
+    UNPACK_STRING = (
+        "<4s64s64s64s64s64s64s64s18s18s64s64s64si4sI4sI4sI4sI4sI4sI4sI4sI276s1024s"
+    )
+    PACK_STRING = (
+        "<4sI4s64s64s64s64s64s64s64s18s18s64s64s64si4sI4sI4sI4sI4sI4sI4sI4sI276s1024s"
+    )
+
+    __version: str
+    __title: str
+    __artist: str
+    __cut_id: str
+    __client_id: str
+    __category: str
+    __classification: str
+    __out_cue: str
+    __start_date: datetime
+    __end_date: datetime
+    __producer_app: str
+    __producer_app_version: str
+    __user_defined: str
+    __ref_0db: int
+    __timers: List[CartTimer]
+    __url: str
+    __tag_text: str
+
+    def __init__(
+        self,
+        version: str,
+        title: str,
+        artist: str,
+        cut_id: str,
+        client_id: str,
+        category: str,
+        classification: str,
+        out_cue: str,
+        start_date: datetime,
+        end_date: datetime,
+        producer_app: str,
+        producer_app_version: str,
+        user_defined: str,
+        ref_0db: int,
+        timers: List[CartTimer],
+        url: str,
+        tag_text: str,
+    ):
+        self.__version = version
+        self.__title = title
+        self.__artist = artist
+        self.__cut_id = cut_id
+        self.__client_id = client_id
+        self.__category = category
+        self.__classification = classification
+        self.__out_cue = out_cue
+        self.__start_date = start_date
+        self.__end_date = end_date
+        self.__producer_app = producer_app
+        self.__producer_app_version = producer_app_version
+        self.__user_defined = user_defined
+        self.__ref_0db = ref_0db
+        self.__timers = timers
+        self.__url = url
+        self.__tag_text = tag_text
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> Chunk:
+
+        # Sanity checks
+
+        (header_str, length) = cls.read_header(file_handle, offset)
+        if not header_str == cls.HEADER_CART:
+            raise InvalidHeaderException("Cart chunk must start with cart")
+
+        if length < cls.LENGTH_MINIMUM:
+            raise InvalidHeaderException(
+                f"Cart chunk is not long enough. Must be a minimum of {cls.LENGTH_MINIMUM} bytes"
+            )
+
+        # Read from the chunk
+
+        tag_text = None
+        unpack_string = cls.UNPACK_STRING
+
+        if length > cls.LENGTH_MINIMUM:
+            unpack_string += f"{length - cls.LENGTH_MINIMUM}s"
+            (
+                version,
+                title,
+                artist,
+                cut_id,
+                client_id,
+                category,
+                classification,
+                out_cue,
+                start_date_str,
+                end_date_str,
+                producer_app_id,
+                producer_app_version,
+                user_defined,
+                ref_0db,
+                timer_name_0,
+                timer_time_0,
+                timer_name_1,
+                timer_time_1,
+                timer_name_2,
+                timer_time_2,
+                timer_name_3,
+                timer_time_3,
+                timer_name_4,
+                timer_time_4,
+                timer_name_5,
+                timer_time_5,
+                timer_name_6,
+                timer_time_6,
+                timer_name_7,
+                timer_time_7,
+                _,
+                url,
+                tag_text,
+            ) = unpack(
+                unpack_string,
+                seek_and_read(
+                    file_handle,
+                    offset + cls.OFFSET_CHUNK_CONTENT,
+                    length,
+                ),
+            )
+        else:
+            (
+                version,
+                title,
+                artist,
+                cut_id,
+                client_id,
+                category,
+                classification,
+                out_cue,
+                start_date_str,
+                end_date_str,
+                producer_app_id,
+                producer_app_version,
+                user_defined,
+                ref_0db,
+                timer_name_0,
+                timer_time_0,
+                timer_name_1,
+                timer_time_1,
+                timer_name_2,
+                timer_time_2,
+                timer_name_3,
+                timer_time_3,
+                timer_name_4,
+                timer_time_4,
+                timer_name_5,
+                timer_time_5,
+                timer_name_6,
+                timer_time_6,
+                timer_name_7,
+                timer_time_7,
+                _,
+                url,
+            ) = unpack(
+                unpack_string,
+                seek_and_read(
+                    file_handle,
+                    offset + cls.OFFSET_CHUNK_CONTENT,
+                    length,
+                ),
+            )
+
+        # Extract out the timers
+
+        timers = CartTimer.from_cart_parts(
+            [
+                (timer_name_0, timer_time_0),
+                (timer_name_1, timer_time_1),
+                (timer_name_2, timer_time_2),
+                (timer_name_3, timer_time_3),
+                (timer_name_4, timer_time_4),
+                (timer_name_5, timer_time_5),
+                (timer_name_6, timer_time_6),
+                (timer_name_7, timer_time_7),
+            ]
+        )
+
+        # Decode the start/end datetime
+
+        start_date = datetime.strptime(
+            decode_string(start_date_str), cls.FORMAT_DATE_TIME
+        )
+        end_date = datetime.strptime(decode_string(end_date_str), cls.FORMAT_DATE_TIME)
+
+        # Build the chunk
+
+        return CartChunk(
+            decode_string(version),
+            decode_string(title),
+            decode_string(artist),
+            decode_string(cut_id),
+            decode_string(client_id),
+            decode_string(category),
+            decode_string(classification),
+            decode_string(out_cue),
+            start_date,
+            end_date,
+            decode_string(producer_app_id),
+            decode_string(producer_app_version),
+            decode_string(user_defined),
+            ref_0db,
+            timers,
+            decode_string(url),
+            decode_string(tag_text),
+        )
+
+    @property
+    def get_name(self) -> str:
+        return self.HEADER_CART
+
+    def to_bytes(self) -> List[bytes]:
+
+        # Explode out our list of timers
+
+        timer_values = [
+            b"",
+            0,
+            b"",
+            0,
+            b"",
+            0,
+            b"",
+            0,
+            b"",
+            0,
+            b"",
+            0,
+            b"",
+            0,
+            b"",
+            0,
+        ]
+        timers = self.timers[0:8]
+
+        for index, timer in enumerate(timers):
+            timer_values[index * 2] = encode_string(timer.name)
+            timer_values[index * 2 + 1] = timer.time
+
+        # Work out the chunk length
+
+        pack_string = self.PACK_STRING
+        length = self.LENGTH_MINIMUM
+
+        if self.tag_text:
+            tag_text_length = len(self.tag_text)
+            length += tag_text_length
+            pack_string += f"{tag_text_length}s"
+            return pack(
+                pack_string,
+                self.HEADER_CART,
+                length,
+                encode_string(self.version),
+                encode_string(self.title),
+                encode_string(self.artist),
+                encode_string(self.cut_id),
+                encode_string(self.client_id),
+                encode_string(self.category),
+                encode_string(self.classification),
+                encode_string(self.out_cue),
+                encode_string(self.start_date.strftime(self.FORMAT_DATE_TIME)),
+                encode_string(self.end_date.strftime(self.FORMAT_DATE_TIME)),
+                encode_string(self.producer_app),
+                encode_string(self.producer_app_version),
+                encode_string(self.user_defined),
+                self.ref_0db,
+                timer_values[0],
+                timer_values[1],
+                timer_values[2],
+                timer_values[3],
+                timer_values[4],
+                timer_values[5],
+                timer_values[6],
+                timer_values[7],
+                timer_values[8],
+                timer_values[9],
+                timer_values[10],
+                timer_values[11],
+                timer_values[12],
+                timer_values[13],
+                timer_values[14],
+                timer_values[15],
+                b"",
+                encode_string(self.url),
+                encode_string(self.tag_text),
+            )
+
+        return pack(
+            pack_string,
+            self.HEADER_CART,
+            length,
+            encode_string(self.version),
+            encode_string(self.title),
+            encode_string(self.artist),
+            encode_string(self.cut_id),
+            encode_string(self.client_id),
+            encode_string(self.category),
+            encode_string(self.classification),
+            encode_string(self.out_cue),
+            encode_string(self.start_date.strftime(self.FORMAT_DATE_TIME)),
+            encode_string(self.end_date.strftime(self.FORMAT_DATE_TIME)),
+            encode_string(self.producer_app),
+            encode_string(self.producer_app_version),
+            encode_string(self.user_defined),
+            self.ref_0db,
+            timer_values[0],
+            timer_values[1],
+            timer_values[2],
+            timer_values[3],
+            timer_values[4],
+            timer_values[5],
+            timer_values[6],
+            timer_values[7],
+            timer_values[8],
+            timer_values[9],
+            timer_values[10],
+            timer_values[11],
+            timer_values[12],
+            timer_values[13],
+            timer_values[14],
+            timer_values[15],
+            b"",
+            encode_string(self.url),
+        )
+
+    @property
+    def version(self) -> str:
+        """
+        The cart chunk version. Usually 0101.
+        """
+        return self.__version
+
+    @property
+    def title(self) -> str:
+        """
+        The cart title.
+        """
+        return self.__title
+
+    @property
+    def artist(self) -> str:
+        """
+        The artist of the audio on the cart.
+        """
+        return self.__artist
+
+    @property
+    def cut_id(self) -> str:
+        """
+        The unique cut ID. Not to be confused with the cart ID.
+        """
+        return self.__cut_id
+
+    @property
+    def client_id(self) -> str:
+        """
+        The client ID. Mainly used for adverts.
+        """
+        return self.__client_id
+
+    @property
+    def category(self) -> str:
+        """
+        The category of the cart. While this is a freeform text field, AES46-2002 has a list of recommendations.
+        """
+        return self.__category
+
+    @property
+    def classification(self) -> str:
+        """
+        Another field we can use of categorisation.
+        """
+        return self.__classification
+
+    @property
+    def out_cue(self) -> str:
+        """
+        The out cue for any presenter / journalist using the cart. Not seen often in the wild.
+        """
+        return self.__out_cue
+
+    @property
+    def start_date(self) -> datetime:
+        """
+        The valid start date/time.
+        """
+        return self.__start_date
+
+    @property
+    def end_date(self) -> datetime:
+        """
+        The valid end date/time.
+        """
+        return self.__end_date
+
+    @property
+    def producer_app(self) -> str:
+        """
+        The name of the application that produced the cart.
+        """
+        return self.__producer_app
+
+    @property
+    def producer_app_version(self) -> str:
+        """
+        The version of the application that produced the cart.
+        """
+        return self.__producer_app_version
+
+    @property
+    def user_defined(self) -> str:
+        """
+        A user defined text field.
+        """
+        return self.__user_defined
+
+    @property
+    def ref_0db(self) -> int:
+        """
+        The 0dB reference level.
+        """
+        return self.__ref_0db
+
+    @property
+    def timers(self) -> List[CartTimer]:
+        """
+        The timers / markers for the audio. This is the bit playout systems use.
+        """
+        return self.__timers
+
+    @property
+    def url(self) -> str:
+        """
+        A URL linked from the audio file.
+        """
+        return self.__url
+
+    @property
+    def tag_text(self) -> str:
+        """
+        A freeform text field. Used by Master Control and friends to store extra metadata in XML, JSON, etc.
+        """
+        return self.__tag_text
