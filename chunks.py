@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from datetime import date, datetime
+from datetime import datetime
 from enum import Enum
 from exceptions import (
     ExportExtendedFormatException,
@@ -354,9 +354,7 @@ class CartTimer:
         if prefix not in self.__permitted_prefixes:
             raise InvalidTimerException(f"{prefix} is not a valid timer prefix")
 
-        if (
-            suffix == "s" or suffix == "e"
-        ) and prefix not in self.__permitted_start_end:
+        if suffix in ("s", "e") and prefix not in self.__permitted_start_end:
             raise InvalidTimerException(
                 f"{prefix} timers cannot have start or end suffixes"
             )
@@ -709,44 +707,44 @@ class CartChunk(Chunk):
                 encode_string(self.url),
                 encode_string(self.tag_text),
             )
-        else:
-            return pack(
-                pack_string,
-                self.HEADER_CART,
-                length,
-                encode_string(self.version),
-                encode_string(self.title),
-                encode_string(self.artist),
-                encode_string(self.cut_id),
-                encode_string(self.client_id),
-                encode_string(self.category),
-                encode_string(self.classification),
-                encode_string(self.out_cue),
-                encode_string(self.start_date.strftime(self.FORMAT_DATE_TIME)),
-                encode_string(self.end_date.strftime(self.FORMAT_DATE_TIME)),
-                encode_string(self.producer_app),
-                encode_string(self.producer_app_version),
-                encode_string(self.user_defined),
-                self.ref_0db,
-                timer_values[0],
-                timer_values[1],
-                timer_values[2],
-                timer_values[3],
-                timer_values[4],
-                timer_values[5],
-                timer_values[6],
-                timer_values[7],
-                timer_values[8],
-                timer_values[9],
-                timer_values[10],
-                timer_values[11],
-                timer_values[12],
-                timer_values[13],
-                timer_values[14],
-                timer_values[15],
-                b"",
-                encode_string(self.url),
-            )
+
+        return pack(
+            pack_string,
+            self.HEADER_CART,
+            length,
+            encode_string(self.version),
+            encode_string(self.title),
+            encode_string(self.artist),
+            encode_string(self.cut_id),
+            encode_string(self.client_id),
+            encode_string(self.category),
+            encode_string(self.classification),
+            encode_string(self.out_cue),
+            encode_string(self.start_date.strftime(self.FORMAT_DATE_TIME)),
+            encode_string(self.end_date.strftime(self.FORMAT_DATE_TIME)),
+            encode_string(self.producer_app),
+            encode_string(self.producer_app_version),
+            encode_string(self.user_defined),
+            self.ref_0db,
+            timer_values[0],
+            timer_values[1],
+            timer_values[2],
+            timer_values[3],
+            timer_values[4],
+            timer_values[5],
+            timer_values[6],
+            timer_values[7],
+            timer_values[8],
+            timer_values[9],
+            timer_values[10],
+            timer_values[11],
+            timer_values[12],
+            timer_values[13],
+            timer_values[14],
+            timer_values[15],
+            b"",
+            encode_string(self.url),
+        )
 
     @property
     def version(self) -> str:

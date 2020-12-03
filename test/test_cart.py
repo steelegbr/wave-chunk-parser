@@ -216,7 +216,8 @@ class TestCartChunk(TestCase):
                 # Assert
 
                 self.assertIn(
-                    "Cart chunk is not long enough. Must be a minimum of 2048 bytes"
+                    "Cart chunk is not long enough. Must be a minimum of 2048 bytes",
+                    context.exception,
                 )
 
     @parameterized.expand(
