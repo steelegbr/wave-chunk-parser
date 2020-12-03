@@ -11,7 +11,7 @@ class TestCartChunk(TestCase):
     @parameterized.expand(
         [
             (
-                "./test/files/CC_0101.wav",
+                "./test/files/cc_0101.wav",
                 746,
                 "0101",
                 "Cart Chunk: the traffic data file format for the Radio Industry",
