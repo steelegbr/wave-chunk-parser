@@ -12,3 +12,11 @@ class ExportExtendedFormatException(Exception):
     """
 
     pass
+
+
+class InvalidTimerException(Exception):
+    """
+    Indicates a cart timer is invalid.
+    """
+
+    pass
