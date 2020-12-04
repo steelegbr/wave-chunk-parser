@@ -76,10 +76,7 @@ class TestWaveChunk(TestCase):
 
         with open("./test/files/valid_no_markers.wav", "rb") as in_file:
             samples = np.memmap(
-                in_file,
-                dtype=np.dtype("<i2"),
-                mode="c",
-                shape=(111020, 2),
+                in_file, dtype=np.dtype("<i2"), mode="c", shape=(111020, 2), offset=44
             )
 
         chunks[RiffChunk.CHUNK_DATA] = DataChunk(samples)
@@ -87,6 +84,40 @@ class TestWaveChunk(TestCase):
         riff = RiffChunk(chunks)
 
         with open("./test/files/valid_with_markers.wav", "rb") as expected_file:
+            expected_blob = expected_file.read()
+
+        #  Act
+
+        blob = riff.to_bytes()
+
+        # Assert
+
+        self.assertIsNotNone(blob)
+        self.assertEqual(blob, expected_blob)
+
+    def test_encode_wave_no_cart(self):
+        """
+        A WAVE file with no cart chunk can be encoded.
+        """
+
+        # Arrange
+
+        chunks = {}
+
+        chunks[RiffChunk.CHUNK_FORMAT] = FormatChunk(
+            WaveFormat.PCM, False, 2, 44100, 16
+        )
+
+        with open("./test/files/valid_no_markers.wav", "rb") as in_file:
+            samples = np.memmap(
+                in_file, dtype=np.dtype("<i2"), mode="c", shape=(111020, 2), offset=44
+            )
+
+        chunks[RiffChunk.CHUNK_DATA] = DataChunk(samples)
+
+        riff = RiffChunk(chunks)
+
+        with open("./test/files/valid_no_markers.wav", "rb") as expected_file:
             expected_blob = expected_file.read()
 
         #  Act

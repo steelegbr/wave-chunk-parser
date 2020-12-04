@@ -987,7 +987,7 @@ class RiffChunk(Chunk):
         # Create the header
 
         lengths = [len(chunk) for chunk in chunk_bytes]
-        length = reduce(lambda a, b: a + b, lengths)
+        length = reduce(lambda a, b: a + b, lengths) + self.LENGTH_SUB_TYPE
         header = pack(
             self.STRUCT_RIFF_HEADER, self.HEADER_RIFF, length, self.HEADER_WAVE
         )
