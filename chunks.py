@@ -6,10 +6,12 @@ from exceptions import (
     ExportExtendedFormatException,
     InvalidHeaderException,
     InvalidTimerException,
+    InvalidWaveException,
 )
+from functools import reduce
 import numpy as np
 from struct import unpack, pack
-from typing import BinaryIO, List, Tuple
+from typing import BinaryIO, Dict, List, Tuple
 from utils import decode_string, encode_string, seek_and_read
 
 
@@ -19,6 +21,7 @@ class Chunk(ABC):
     """
 
     OFFSET_CHUNK_CONTENT = 8
+    STRUCT_HEADER = "<4sI"
 
     @classmethod
     def read_header(cls, file_handle: BinaryIO, offset: int) -> Tuple[str, int]:
@@ -34,7 +37,8 @@ class Chunk(ABC):
         """
 
         return unpack(
-            "<4sI", seek_and_read(file_handle, offset, cls.OFFSET_CHUNK_CONTENT)
+            cls.STRUCT_HEADER,
+            seek_and_read(file_handle, offset, cls.OFFSET_CHUNK_CONTENT),
         )
 
     @property
@@ -864,3 +868,131 @@ class CartChunk(Chunk):
         A freeform text field. Used by Master Control and friends to store extra metadata in XML, JSON, etc.
         """
         return self.__tag_text
+
+
+class RiffChunk(Chunk):
+    """
+    The second level WAVE chunk in a RIFF file.
+    """
+
+    __sub_chunks: Dict[str, Chunk] = {}
+
+    HEADER_RIFF = b"RIFF"
+    HEADER_WAVE = b"WAVE"
+    CHUNK_HEADER_MAP = {b"fmt ": FormatChunk, b"data": DataChunk, b"cart": CartChunk}
+
+    CHUNK_FORMAT = b"fmt "
+    CHUNK_DATA = b"data"
+    CHUNK_CART = b"cart"
+
+    OFFSET_SUB_TYPE = 8
+    OFFSET_CHUNKS_START = 12
+
+    LENGTH_SUB_TYPE = 4
+
+    STRUCT_SUB_TYPE = "<4s"
+    STRUCT_RIFF_HEADER = "<4sI4s"
+
+    def __init__(self, sub_chunks: Dict[str, Chunk]) -> None:
+        self.__sub_chunks = sub_chunks
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int = 0) -> Chunk:
+
+        # Sanity check
+
+        (header_str, length) = cls.read_header(file_handle, offset)
+
+        if not header_str == cls.HEADER_RIFF:
+            raise InvalidHeaderException("WAVE files must have a RIFF header")
+
+        if not length:
+            raise InvalidHeaderException(
+                "WAVE files must have a length greater than zero"
+            )
+
+        # Check the RIFF sub-type
+
+        (sub_type,) = unpack(
+            cls.STRUCT_SUB_TYPE,
+            seek_and_read(
+                file_handle, offset + cls.OFFSET_SUB_TYPE, cls.LENGTH_SUB_TYPE
+            ),
+        )
+        if not sub_type == cls.HEADER_WAVE:
+            raise InvalidHeaderException("This library only supports WAVE files")
+
+        # Read in the sub-chunks
+
+        current_offset = offset + cls.OFFSET_CHUNKS_START
+        file_handle.seek(0, 2)
+        end_of_file = min(file_handle.tell(), length + current_offset)
+        chunk_map = {}
+
+        while current_offset < end_of_file:
+            (current_header, current_length) = cls.read_header(
+                file_handle, current_offset
+            )
+            chunk_type = cls.CHUNK_HEADER_MAP.get(current_header, None)
+
+            if chunk_type:
+                if chunk_type == DataChunk:
+                    if b"fmt " not in chunk_map:
+                        raise InvalidWaveException(
+                            "A format chunk must be read before a data chunk!"
+                        )
+                    else:
+                        chunk = DataChunk.from_file_with_format(
+                            file_handle, current_offset, chunk_map.get(cls.CHUNK_FORMAT)
+                        )
+                else:
+                    chunk = chunk_type.from_file(file_handle, current_offset)
+
+                chunk_map[current_header] = chunk
+
+            # Cycle onto the next chunk
+
+            current_offset += current_length + cls.OFFSET_CHUNK_CONTENT
+
+        return RiffChunk(chunk_map)
+
+    @property
+    def sub_chunks(self) -> Dict[str, Chunk]:
+        return self.__sub_chunks
+
+    @property
+    def get_name(self) -> str:
+        return self.HEADER_WAVE
+
+    def to_bytes(self) -> List[bytes]:
+
+        # Check we have at least a format and data chunk
+
+        if not self.CHUNK_FORMAT in self.sub_chunks:
+            raise InvalidWaveException("Valid wave files must have a format chunk")
+
+        if not self.CHUNK_DATA in self.sub_chunks:
+            raise InvalidWaveException("Valid wave files must have a data chunk")
+
+        # Build our chunks up in order
+
+        chunk_bytes = []
+        chunk_bytes.append(self.sub_chunks.get(self.CHUNK_FORMAT).to_bytes())
+
+        if self.CHUNK_CART in self.sub_chunks:
+            chunk_bytes.append(self.sub_chunks.get(self.CHUNK_CART).to_bytes())
+
+        chunk_bytes.append(self.sub_chunks.get(self.CHUNK_DATA).to_bytes())
+
+        # Create the header
+
+        lengths = [len(chunk) for chunk in chunk_bytes]
+        length = reduce(lambda a, b: a + b, lengths)
+        header = pack(
+            self.STRUCT_RIFF_HEADER, self.HEADER_RIFF, length, self.HEADER_WAVE
+        )
+        chunk_bytes.insert(0, header)
+
+        # Create a blob
+
+        return b"".join(chunk_bytes)
