@@ -31,6 +31,27 @@ class TestCartChunk(TestCase):
                 "http://www.example.com/",
                 None,
             ),
+            (
+                "./test/files/cart_long.blob",
+                0,
+                "0101",
+                "This is a cart with a really long title that should be trunkated",
+                "This is a cart with a really long artist name that should be tru",
+                "LONGCART",
+                "Biscuit Muncher",
+                "DEMO",
+                "Demo and sample files",
+                "Nom Nom Nom!",
+                datetime(1900, 1, 1, 0, 0),
+                datetime(2099, 12, 31, 23, 59, 59),
+                "Hand Crafted",
+                "MK1 Eyeball",
+                "Some stuff goes in here....",
+                32768,
+                [("MRK ", 112000), ("SEC1", 152533), ("EOD", 201024)],
+                "http://www.example.com/",
+                "A load of junk goes in here.\r\n",
+            ),
         ]
     )
     def test_read_valid_data_chunk(

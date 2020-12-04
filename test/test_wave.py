@@ -1,3 +1,4 @@
+from exceptions import InvalidHeaderException, InvalidWaveException
 from chunks import CartChunk, CartTimer, DataChunk, FormatChunk, RiffChunk, WaveFormat
 from datetime import datetime
 import numpy as np
@@ -28,6 +29,7 @@ class TestWaveChunk(TestCase):
             # Assert
 
             self.assertIsNotNone(chunk)
+            self.assertEqual(chunk.get_name, b"WAVE")
             self.assertIsNotNone(chunk.sub_chunks)
             self.assertEqual(len(chunk.sub_chunks), len(expected_chunks))
 
@@ -127,3 +129,122 @@ class TestWaveChunk(TestCase):
 
         self.assertIsNotNone(blob)
         self.assertEqual(blob, expected_blob)
+
+    def test_riff_bad_header(self):
+        """
+        Raise an exception if the header does not start with RIFF
+        """
+
+        # Arrange
+
+        with open("./test/files/cart_long.blob", "rb") as file:
+
+            #  Act
+
+            with self.assertRaises(InvalidHeaderException) as context:
+                RiffChunk.from_file(file)
+
+                # Assert
+
+                self.assertIn("WAVE files must have a RIFF header", context.exception)
+
+    def test_riff_bad_length(self):
+        """
+        Raise an exception if the header does not start a valid length
+        """
+
+        # Arrange
+
+        with open("./test/files/riff_bad_length.blob", "rb") as file:
+
+            #  Act
+
+            with self.assertRaises(InvalidHeaderException) as context:
+                RiffChunk.from_file(file)
+
+                # Assert
+
+                self.assertIn(
+                    "WAVE files must have a length greater than zero", context.exception
+                )
+
+    def test_riff_bad_type(self):
+        """
+        Raise an exception if the RIFF file is not WAVE audio
+        """
+
+        # Arrange
+
+        with open("./test/files/riff_bad_type.blob", "rb") as file:
+
+            #  Act
+
+            with self.assertRaises(InvalidHeaderException) as context:
+                RiffChunk.from_file(file)
+
+                # Assert
+
+                self.assertIn(
+                    "This library only supports WAVE files", context.exception
+                )
+
+    def test_riff_wrong_order(self):
+        """
+        Raise an exception if the sub chunks are in the wrong order
+        """
+
+        # Arrange
+
+        with open("./test/files/invalid_wrong_order.wav", "rb") as file:
+
+            #  Act
+
+            with self.assertRaises(InvalidWaveException) as context:
+                RiffChunk.from_file(file)
+
+                # Assert
+
+                self.assertIn(
+                    "A format chunk must be read before a data chunk!",
+                    context.exception,
+                )
+
+    def test_encode_no_format(self):
+        """
+        Raises an exception if no format chunk is supplied.
+        """
+
+        # Arrange
+
+        chunk = RiffChunk({})
+
+        # Act
+
+        with self.assertRaises(InvalidWaveException) as context:
+            chunk.to_bytes()
+
+            # Assert
+
+            self.assertIn(
+                "Valid wave files must have a format chunk", context.exception
+            )
+
+    def test_encode_no_data(self):
+        """
+        Raises an exception if no data chunk is supplied.
+        """
+
+        # Arrange
+
+        chunk = RiffChunk({b"fmt ": FormatChunk(WaveFormat.PCM, False, 2, 48000, 16)})
+
+        # Act
+
+        with self.assertRaises(InvalidWaveException) as context:
+            chunk.to_bytes()
+
+            # Assert
+
+            self.assertIn(
+                "Valid wave files must have a format chunk", context.exception
+            )
