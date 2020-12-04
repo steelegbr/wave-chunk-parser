@@ -9,7 +9,6 @@ from unittest import TestCase
 class TestWaveChunk(TestCase):
     @parameterized.expand(
         [
-            ("./test/files/cc_0101.wav", [b"cart", b"fmt ", b"data"]),
             ("./test/files/valid_no_markers.wav", [b"fmt ", b"data"]),
         ]
     )

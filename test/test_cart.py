@@ -11,27 +11,6 @@ class TestCartChunk(TestCase):
     @parameterized.expand(
         [
             (
-                "./test/files/cc_0101.wav",
-                746,
-                "0101",
-                "Cart Chunk: the traffic data file format for the Radio Industry",
-                "Jay Rose, dplay.com",
-                "DEMO-0101",
-                "CartChunk.org",
-                "DEMO",
-                "Demo and sample files",
-                "the Radio Industry",
-                datetime(1900, 1, 1, 0, 0),
-                datetime(2099, 12, 31, 23, 59, 59),
-                "AUDICY",
-                "3.10/623",
-                "Demo ID showing basic 'cart' chunk attributes",
-                32768,
-                [("MRK ", 112000), ("SEC1", 152533), ("EOD", 201024)],
-                "http://www.cartchunk.org",
-                "The radio traffic data, or 'cart' format utilizes a widely\r\nused standard audio file format (wave and broadcast wave file).\r\nIt incorporates the common broadcast-specific cart labeling\r\ninformation into a specialized chunk within the file itself.\r\nAs a result, the burden of linking multiple systems is reduced\r\nto producer applications writing a single file, and the consumer\r\napplications reading it. The destination application can extract\r\ninformation and insert it into the native database application\r\nas needed.\r\n",
-            ),
-            (
                 "./test/files/cart_no_tag.blob",
                 0,
                 "0101",
@@ -147,7 +126,6 @@ class TestCartChunk(TestCase):
 
     @parameterized.expand(
         [
-            ("./test/files/cart_cc_101.json", "./test/files/cart_cc_101.blob"),
             ("./test/files/cart_long.json", "./test/files/cart_long.blob"),
             ("./test/files/cart_no_tag.json", "./test/files/cart_no_tag.blob"),
         ]
