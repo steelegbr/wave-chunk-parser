@@ -20,3 +20,9 @@ class InvalidTimerException(Exception):
     """
 
     pass
+
+
+class InvalidWaveException(Exception):
+    """
+    The wave file is not valid.
+    """
