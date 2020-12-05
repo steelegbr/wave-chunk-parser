@@ -933,7 +933,7 @@ class RiffChunk(Chunk):
             (current_header, current_length) = cls.read_header(
                 file_handle, current_offset
             )
-            chunk_type = cls.CHUNK_HEADER_MAP.get(current_header, None)
+            chunk_type = cls.CHUNK_HEADER_MAP.get(current_header)
 
             if chunk_type:
                 if chunk_type == DataChunk:
@@ -941,10 +941,9 @@ class RiffChunk(Chunk):
                         raise InvalidWaveException(
                             "A format chunk must be read before a data chunk!"
                         )
-                    else:
-                        chunk = DataChunk.from_file_with_format(
-                            file_handle, current_offset, chunk_map.get(cls.CHUNK_FORMAT)
-                        )
+                    chunk = DataChunk.from_file_with_format(
+                        file_handle, current_offset, chunk_map.get(cls.CHUNK_FORMAT)
+                    )
                 else:
                     chunk = chunk_type.from_file(file_handle, current_offset)
 
