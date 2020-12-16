@@ -21,7 +21,7 @@ with open("README.md", "r", encoding="UTF-8") as fh:
 
 setuptools.setup(
     name="wave_chunk_parser",
-    version="1.0.0",
+    version="1.0.1",
     author="Marc Steele",
     author_email="steelegbr@gmail.com",
     description="Parses and writes WAVE file chunks",
