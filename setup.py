@@ -20,7 +20,7 @@ with open("README.md", "r", encoding="UTF-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="wave-chunk-parser-steelegbr",
+    name="wave-chunk-parser",
     version="1.0.0",
     author="Marc Steele",
     author_email="steelegbr@gmail.com",
