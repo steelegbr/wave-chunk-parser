@@ -1,5 +1,28 @@
-from exceptions import InvalidHeaderException, InvalidWaveException
-from chunks import CartChunk, CartTimer, DataChunk, FormatChunk, RiffChunk, WaveFormat
+"""
+   Copyright 2020 Marc Steele
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+"""
+
+from wave_chunk_parser.exceptions import InvalidHeaderException, InvalidWaveException
+from wave_chunk_parser.chunks import (
+    CartChunk,
+    CartTimer,
+    DataChunk,
+    FormatChunk,
+    RiffChunk,
+    WaveFormat,
+)
 from datetime import datetime
 import numpy as np
 from parameterized import parameterized
@@ -10,7 +33,7 @@ from unittest import TestCase
 class TestWaveChunk(TestCase):
     @parameterized.expand(
         [
-            ("./test/files/valid_no_markers.wav", [b"fmt ", b"data"]),
+            ("./tests/files/valid_no_markers.wav", [b"fmt ", b"data"]),
         ]
     )
     def test_read_valid_wave(self, file_name: str, expected_chunks: List[str]):
@@ -75,7 +98,7 @@ class TestWaveChunk(TestCase):
             "Load of text goes in here.\r\n",
         )
 
-        with open("./test/files/valid_no_markers.wav", "rb") as in_file:
+        with open("./tests/files/valid_no_markers.wav", "rb") as in_file:
             samples = np.memmap(
                 in_file, dtype=np.dtype("<i2"), mode="c", shape=(111020, 2), offset=44
             )
@@ -84,7 +107,7 @@ class TestWaveChunk(TestCase):
 
         riff = RiffChunk(chunks)
 
-        with open("./test/files/valid_with_markers.wav", "rb") as expected_file:
+        with open("./tests/files/valid_with_markers.wav", "rb") as expected_file:
             expected_blob = expected_file.read()
 
         #  Act
@@ -109,7 +132,7 @@ class TestWaveChunk(TestCase):
             WaveFormat.PCM, False, 2, 44100, 16
         )
 
-        with open("./test/files/valid_no_markers.wav", "rb") as in_file:
+        with open("./tests/files/valid_no_markers.wav", "rb") as in_file:
             samples = np.memmap(
                 in_file, dtype=np.dtype("<i2"), mode="c", shape=(111020, 2), offset=44
             )
@@ -118,7 +141,7 @@ class TestWaveChunk(TestCase):
 
         riff = RiffChunk(chunks)
 
-        with open("./test/files/valid_no_markers.wav", "rb") as expected_file:
+        with open("./tests/files/valid_no_markers.wav", "rb") as expected_file:
             expected_blob = expected_file.read()
 
         #  Act
@@ -137,7 +160,7 @@ class TestWaveChunk(TestCase):
 
         # Arrange
 
-        with open("./test/files/cart_long.blob", "rb") as file:
+        with open("./tests/files/cart_long.blob", "rb") as file:
 
             #  Act
 
@@ -155,7 +178,7 @@ class TestWaveChunk(TestCase):
 
         # Arrange
 
-        with open("./test/files/riff_bad_length.blob", "rb") as file:
+        with open("./tests/files/riff_bad_length.blob", "rb") as file:
 
             #  Act
 
@@ -175,7 +198,7 @@ class TestWaveChunk(TestCase):
 
         # Arrange
 
-        with open("./test/files/riff_bad_type.blob", "rb") as file:
+        with open("./tests/files/riff_bad_type.blob", "rb") as file:
 
             #  Act
 
@@ -195,7 +218,7 @@ class TestWaveChunk(TestCase):
 
         # Arrange
 
-        with open("./test/files/invalid_wrong_order.wav", "rb") as file:
+        with open("./tests/files/invalid_wrong_order.wav", "rb") as file:
 
             #  Act
 

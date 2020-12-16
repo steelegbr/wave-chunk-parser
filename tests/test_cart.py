@@ -1,6 +1,22 @@
-from chunks import CartChunk, CartTimer
+"""
+   Copyright 2020 Marc Steele
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+"""
+
+from wave_chunk_parser.chunks import CartChunk, CartTimer
 from datetime import datetime
-from exceptions import InvalidHeaderException, InvalidTimerException
+from wave_chunk_parser.exceptions import InvalidHeaderException, InvalidTimerException
 import json
 from parameterized import parameterized
 from typing import List, Tuple
@@ -11,7 +27,7 @@ class TestCartChunk(TestCase):
     @parameterized.expand(
         [
             (
-                "./test/files/cart_no_tag.blob",
+                "./tests/files/cart_no_tag.blob",
                 0,
                 "0101",
                 "A cart with no tag text",
@@ -32,7 +48,7 @@ class TestCartChunk(TestCase):
                 None,
             ),
             (
-                "./test/files/cart_long.blob",
+                "./tests/files/cart_long.blob",
                 0,
                 "0101",
                 "This is a cart with a really long title that should be trunkated",
@@ -122,7 +138,7 @@ class TestCartChunk(TestCase):
     @parameterized.expand(
         [
             (
-                "./test/files/valid_no_markers.wav",
+                "./tests/files/valid_no_markers.wav",
                 12,
             )
         ]
@@ -147,8 +163,8 @@ class TestCartChunk(TestCase):
 
     @parameterized.expand(
         [
-            ("./test/files/cart_long.json", "./test/files/cart_long.blob"),
-            ("./test/files/cart_no_tag.json", "./test/files/cart_no_tag.blob"),
+            ("./tests/files/cart_long.json", "./tests/files/cart_long.blob"),
+            ("./tests/files/cart_no_tag.json", "./tests/files/cart_no_tag.blob"),
         ]
     )
     def test_encode_chunk(self, json_filename: str, blob_filename: str):
@@ -205,7 +221,7 @@ class TestCartChunk(TestCase):
 
         #  Arrange
 
-        with open("./test/files/cart_bad_length.blob", "rb") as cart_file:
+        with open("./tests/files/cart_bad_length.blob", "rb") as cart_file:
 
             # Act
 
