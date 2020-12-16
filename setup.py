@@ -20,14 +20,14 @@ with open("README.md", "r", encoding="UTF-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="wave-chunk-parser",
+    name="wave_chunk_parser",
     version="1.0.0",
     author="Marc Steele",
     author_email="steelegbr@gmail.com",
     description="Parses and writes WAVE file chunks",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/steelegbr/wave-chunk-parser",
+    url="https://github.com/steelegbr/wave_chunk_parser",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",

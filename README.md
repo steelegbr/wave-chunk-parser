@@ -4,7 +4,7 @@ Parses wave files chunks in order to extract metadata and audio. Also provides a
 
 # Reading a file / IO stream
 
-    from wave-chunk-parser.chunks import RiffChunk
+    from wave_chunk_parser.chunks import RiffChunk
 
     with open("file.wav", "rb") as file:
         riff_chunk = RiffChunk.from_file(file)
