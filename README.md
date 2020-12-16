@@ -2,6 +2,10 @@
 
 Parses wave files chunks in order to extract metadata and audio. Also provides an option to write a bunch of given chunks back into a coherent file.
 
+# Installation
+
+    pip install wave-chunk-parser
+
 # Reading a file / IO stream
 
     from wave_chunk_parser.chunks import RiffChunk
