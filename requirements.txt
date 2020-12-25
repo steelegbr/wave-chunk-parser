@@ -25,7 +25,7 @@ rfc3986==1.4.0
 six==1.15.0
 toml==0.10.2
 tqdm==4.54.1
-twine==3.2.0
+twine==3.3.0
 typed-ast==1.4.1
 typing-extensions==3.7.4.3
 Unidecode==1.1.2
