@@ -12,7 +12,7 @@ keyring==21.8.0
 mypy-extensions==0.4.3
 numpy==1.19.5
 packaging==20.8
-parameterized==0.7.5
+parameterized==0.8.1
 pathspec==0.8.1
 pkginfo==1.6.1
 Pygments==2.7.3
