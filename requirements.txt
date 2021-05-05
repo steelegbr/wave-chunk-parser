@@ -15,7 +15,7 @@ packaging==20.9
 parameterized==0.8.1
 pathspec==0.8.1
 pkginfo==1.7.0
-Pygments==2.8.1
+Pygments==2.9.0
 pyparsing==2.4.7
 readme-renderer==29.0
 regex==2021.4.4
