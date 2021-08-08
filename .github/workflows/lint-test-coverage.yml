@@ -20,6 +20,9 @@ jobs:
     steps:
       - name: Checkout the commit
         uses: actions/checkout@v1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Python ${{ env.PYTHON_VER }}
         uses: actions/setup-python@v1
         with:
