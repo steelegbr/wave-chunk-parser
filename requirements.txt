@@ -14,7 +14,7 @@ numpy==1.21.0
 packaging==21.0
 parameterized==0.8.1
 pathspec==0.8.1
-pkginfo==1.7.0
+pkginfo==1.7.1
 Pygments==2.9.0
 pyparsing==2.4.7
 readme-renderer==29.0
