@@ -1,6 +1,6 @@
 appdirs==1.4.4
 black==21.6b0
-bleach==3.3.0
+bleach==4.0.0
 certifi==2021.5.30
 chardet==4.0.0
 click==8.0.1
@@ -25,7 +25,7 @@ rfc3986==1.5.0
 six==1.16.0
 toml==0.10.2
 tqdm==4.61.1
-twine==3.4.1
+twine==3.4.2
 typed-ast==1.4.3
 typing-extensions==3.10.0.0
 Unidecode==1.2.0
