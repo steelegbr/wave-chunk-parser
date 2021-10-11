@@ -1,6 +1,6 @@
 appdirs==1.4.4
 black==21.9b0
-bleach==4.0.0
+bleach==4.1.0
 certifi==2021.10.8
 chardet==4.0.0
 click==8.0.3
