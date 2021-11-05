@@ -10,7 +10,7 @@ docutils==0.17.1
 idna==2.10
 keyring==23.2.1
 mypy-extensions==0.4.3
-numpy==1.21.2
+numpy==1.21.4
 packaging==21.0
 parameterized==0.8.1
 pathspec==0.9.0
