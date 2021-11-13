@@ -18,7 +18,7 @@ pkginfo==1.7.1
 Pygments==2.10.0
 pyparsing==3.0.6
 readme-renderer==30.0
-regex==2021.10.8
+regex==2021.11.10
 requests==2.26.0
 requests-toolbelt==0.9.1
 rfc3986==1.5.0
