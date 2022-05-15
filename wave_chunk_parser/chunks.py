@@ -1018,6 +1018,103 @@ class ListChunk(Chunk):
         return self.HEADER_LIST
 
 
+class CuePoint(Chunk):
+    """
+    An individual cue point.
+    """
+
+    __id: int
+    __position: int
+    __data_chunk_id: int
+    __chunk_start: int
+    __block_start: int
+    __sample_offset: int
+
+    LENGTH_CUE = 24
+
+    def __init__(
+        self,
+        id: int,
+        position: int,
+        data_chunk_id: int,
+        chunk_start: int,
+        block_start: int,
+        sample_offset: int,
+    ):
+        self.__id = id
+        self.__position = position
+        self.__data_chunk_id = data_chunk_id
+        self.__chunk_start = chunk_start
+        self.__block_start = block_start
+        self.__sample_offset = sample_offset
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> CuePoint:
+        (id, position, data_chunk_id, chunk_start, block_start, sample_offset) = unpack(
+            "<IIIIII", seek_and_read(file_handle, offset, cls.LENGTH_CUE)
+        )
+        return CuePoint(
+            id, position, data_chunk_id, chunk_start, block_start, sample_offset
+        )
+
+    @property
+    def id(self) -> int:
+        """
+        The unique cue point identifier
+        """
+        return self.__id
+
+    @property
+    def position(self) -> int:
+        """
+        The index of this cue point in a list.
+        """
+        return self.__position
+
+    @property
+    def data_chunk_id(self) -> int:
+        """
+        The data chunk number this is from. Our simple implementation always assumes 0.
+        """
+        return self.__data_chunk_id
+
+    @property
+    def chunk_start(self) -> int:
+        """
+        Where the chunk starts this cue point is for. Again, we assume 0.
+        """
+        return self.__chunk_start
+
+    @property
+    def block_start(self) -> int:
+        """
+        The byte offset to start looking in the block. We assume 0 here.
+        """
+        return self.__block_start
+
+    @property
+    def sample_offset(self) -> int:
+        """
+        The sample number the cue point matches. This is the same behaviour as cart chunk.
+        """
+        return self.__sample_offset
+
+    @property
+    def get_name(self) -> str:
+        return
+
+    def to_bytes(self) -> List[bytes]:
+        return pack(
+            "<IIIIII",
+            self.id,
+            self.position,
+            self.data_chunk_id,
+            self.chunk_start,
+            self.block_start,
+            self.sample_offset,
+        )
+
+
 class RiffChunk(Chunk):
     """
     The second level WAVE chunk in a RIFF file.
