@@ -18,8 +18,12 @@ from wave_chunk_parser.exceptions import InvalidHeaderException, InvalidWaveExce
 from wave_chunk_parser.chunks import (
     CartChunk,
     CartTimer,
+    CueChunk,
+    CuePoint,
     DataChunk,
     FormatChunk,
+    ListChunk,
+    LabelChunk,
     RiffChunk,
     WaveFormat,
 )
@@ -97,6 +101,12 @@ class TestWaveChunk(TestCase):
             "http://www.example.com/",
             "Load of text goes in here.\r\n",
         )
+
+        chunks[RiffChunk.CHUNK_CUE] = CueChunk(
+            [CuePoint(1, 32000, RiffChunk.CHUNK_DATA, 0, 0, 32000)]
+        )
+
+        chunks[RiffChunk.CHUNK_LIST] = ListChunk([LabelChunk(1, "Cue Point Test")])
 
         with open("./tests/files/valid_no_markers.wav", "rb") as in_file:
             samples = np.memmap(

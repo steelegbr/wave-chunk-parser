@@ -2,7 +2,7 @@ name: linting-test-coverage
 on: [pull_request_target]
 
 env:
-  PYTHON_VER: 3.9
+  PYTHON_VER: "3.10"
   DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}
 
 jobs:

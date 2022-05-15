@@ -39,3 +39,7 @@ We need openblas to make Numpy work on macOS:
     pip uninstall numpy
     brew install openblas
     OPENBLAS="$(brew --prefix openblas)" pip install numpy --no-cache-dir
+
+## Further Reading
+
+(musicg-api)[https://sites.google.com/site/musicgapi/technical-documents/wav-file-format#labl] provide some more guidance on the label and cue chunks.

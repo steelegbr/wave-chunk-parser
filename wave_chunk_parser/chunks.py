@@ -1,5 +1,5 @@
 """
-   Copyright 2020 Marc Steele
+   Copyright 2020-2022 Marc Steele
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -886,6 +886,311 @@ class CartChunk(Chunk):
         return self.__tag_text
 
 
+class LabelChunk(Chunk):
+    """
+    A label associated with a cue point
+    """
+
+    HEADER_LABEL = b"labl"
+    OFFSET_LABEL = 4
+    OFFSET_HEADER = 4
+
+    __id: int
+    __label: str
+
+    def __init__(self, id: int, label: str):
+        self.__id = id
+        self.__label = label
+
+    @property
+    def get_name(self) -> str:
+        return self.HEADER_LABEL  # skipcq: TCV-001
+
+    def to_bytes(self) -> List[bytes]:
+        encoded_label = encode_string(self.__label)
+        encoded_label_length = len(encoded_label)
+
+        return pack(
+            f"<4sII{encoded_label_length}s",
+            self.HEADER_LABEL,
+            encoded_label_length + self.OFFSET_LABEL,
+            self.__id,
+            encoded_label,
+        )
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> Chunk:
+        # Sanity checks
+
+        (header_str, length) = cls.read_header(file_handle, offset)
+        if not header_str == cls.HEADER_LABEL:
+            raise InvalidHeaderException(
+                "Label header must start with label"
+            )  # skipcq: TCV-001
+
+        # Read the rest of the header
+
+        new_id, raw_label = unpack(
+            f"<I{length - cls.OFFSET_LABEL}s",
+            seek_and_read(
+                file_handle,
+                offset + cls.OFFSET_CHUNK_CONTENT,
+                length,
+            ),
+        )
+        return LabelChunk(new_id, decode_string(raw_label))
+
+    @property
+    def id(self) -> str:
+        """
+        The cue point ID this label is for.
+        """
+        return self.__id
+
+    @property
+    def label(self) -> str:
+        """
+        The label value.
+        """
+        return self.__label
+
+
+class ListChunk(Chunk):
+    """
+    Associated data list chunk. In this implementation, limited to labl children.
+    """
+
+    __sub_chunks: List[Chunk] = []
+
+    HEADER_LIST = b"LIST"
+    HEADER_ASSOC = b"adtl"
+    LENGTH_ASSOC = 4
+    OFFSET_SUBCHUNKS = 12
+    CHUNK_HEADER_MAP = {
+        b"labl": LabelChunk,
+    }
+
+    def __init__(self, sub_chunks: List[Chunk]):
+        self.__sub_chunks = sub_chunks
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> Chunk:
+
+        # Sanity checks
+
+        (header_str, length) = cls.read_header(file_handle, offset)
+        if not header_str == cls.HEADER_LIST:
+            raise InvalidHeaderException(
+                "List header must start with list"
+            )  # skipcq: TCV-001
+
+        # Read in the sub chunks
+
+        current_offset = offset + cls.OFFSET_SUBCHUNKS
+        end_of_chunk = offset + length
+        sub_chunks = []
+
+        while current_offset < end_of_chunk:
+            (current_header, current_length) = cls.read_header(
+                file_handle, current_offset
+            )
+            chunk_type = cls.CHUNK_HEADER_MAP.get(current_header)
+
+            if chunk_type:
+                current_sub_chunk = chunk_type.from_file(file_handle, current_offset)
+                sub_chunks.append(current_sub_chunk)
+
+            current_offset += current_length + cls.OFFSET_CHUNK_CONTENT
+
+        return ListChunk(sub_chunks)
+
+    def to_bytes(self) -> List[bytes]:
+        encoded_sub_chunks = [sub_chunk.to_bytes() for sub_chunk in self.sub_chunks]
+        combined_sub_chunks = b"".join(encoded_sub_chunks)
+        length = len(combined_sub_chunks)
+
+        header = pack(
+            "<4sI4s", self.HEADER_LIST, length + self.LENGTH_ASSOC, self.HEADER_ASSOC
+        )
+        return b"".join([header, combined_sub_chunks])
+
+    @property
+    def sub_chunks(self) -> List[Chunk]:
+        """
+        Sub chunks in the list
+        """
+        return self.__sub_chunks
+
+    @property
+    def get_name(self) -> str:
+        return self.HEADER_LIST  # skipcq: TCV-001
+
+
+class CuePoint(Chunk):
+    """
+    An individual cue point.
+    """
+
+    __id: int
+    __position: int
+    __data_chunk_id: str
+    __chunk_start: int
+    __block_start: int
+    __sample_offset: int
+
+    LENGTH_CUE = 24
+
+    def __init__(
+        self,
+        id: int,
+        position: int,
+        data_chunk_id: str,
+        chunk_start: int,
+        block_start: int,
+        sample_offset: int,
+    ):
+        self.__id = id
+        self.__position = position
+        self.__data_chunk_id = data_chunk_id
+        self.__chunk_start = chunk_start
+        self.__block_start = block_start
+        self.__sample_offset = sample_offset
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> CuePoint:
+        (id, position, data_chunk_id, chunk_start, block_start, sample_offset) = unpack(
+            "<II4sIII", seek_and_read(file_handle, offset, cls.LENGTH_CUE)
+        )
+        return CuePoint(
+            id, position, data_chunk_id, chunk_start, block_start, sample_offset
+        )
+
+    @property
+    def id(self) -> int:
+        """
+        The unique cue point identifier
+        """
+        return self.__id
+
+    @property
+    def position(self) -> int:
+        """
+        The position of the cue point.
+        """
+        return self.__position
+
+    @property
+    def data_chunk_id(self) -> str:
+        """
+        The data chunk number this is from. Our simple implementation always assumes b"data".
+        """
+        return self.__data_chunk_id
+
+    @property
+    def chunk_start(self) -> int:
+        """
+        Where the chunk starts this cue point is for. Again, we assume 0.
+        """
+        return self.__chunk_start
+
+    @property
+    def block_start(self) -> int:
+        """
+        The byte offset to start looking in the block. We assume 0 here.
+        """
+        return self.__block_start
+
+    @property
+    def sample_offset(self) -> int:
+        """
+        The sample number the cue point matches. This is the same behaviour as cart chunk.
+        """
+        return self.__sample_offset
+
+    @property
+    def get_name(self) -> str:
+        pass  # skipcq: TCV-001
+
+    def to_bytes(self) -> List[bytes]:
+        return pack(
+            "<II4sIII",
+            self.id,
+            self.position,
+            self.data_chunk_id,
+            self.chunk_start,
+            self.block_start,
+            self.sample_offset,
+        )
+
+
+class CueChunk(Chunk):
+    """
+    A list of cue points
+    """
+
+    __cue_points: List[CuePoint] = []
+
+    HEADER_CUE = b"cue "
+    OFFSET_CUE_COUNT = 8
+    OFFSET_CUE_POINTS = 12
+    LENGTH_CUE_POINT = 24
+    LENGTH_CUE_COUNT = 4
+
+    def __init__(self, cue_points: List[CuePoint]) -> CueChunk:
+        self.__cue_points = cue_points
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> CueChunk:
+
+        # Sanity checks
+
+        (header_str, length) = cls.read_header(file_handle, offset)
+        if not header_str == cls.HEADER_CUE:
+            raise InvalidHeaderException(
+                "Cue point chunk must start with cue"
+            )  # skipcq: TCV-001
+
+        # Read from the chunk
+
+        (sub_chunk_count,) = unpack(
+            "<I",
+            seek_and_read(
+                file_handle, offset + cls.OFFSET_CUE_COUNT, cls.LENGTH_CUE_COUNT
+            ),
+        )
+        if length is not sub_chunk_count * cls.LENGTH_CUE_POINT + cls.LENGTH_CUE_COUNT:
+            raise InvalidHeaderException(
+                f"Cue chunk length of {length} does not match for {sub_chunk_count} cue points"
+            )  # skipcq: TCV-001
+
+        cue_points = []
+        current_offset = offset + cls.OFFSET_CUE_POINTS
+        end_of_chunk = offset + length
+
+        while current_offset < end_of_chunk:
+            current_cue_point = CuePoint.from_file(file_handle, current_offset)
+            cue_points.append(current_cue_point)
+            current_offset += cls.LENGTH_CUE_POINT
+
+        return CueChunk(cue_points)
+
+    @property
+    def get_name(self) -> str:
+        return self.HEADER_CUE  # skipcq: TCV-001
+
+    @property
+    def cue_points(self) -> List[CuePoint]:
+        return self.__cue_points
+
+    def to_bytes(self) -> List[bytes]:
+        encoded_cue_points = [cue_point.to_bytes() for cue_point in self.cue_points]
+        cue_point_count = len(self.cue_points)
+        length = cue_point_count * self.LENGTH_CUE_POINT + self.LENGTH_CUE_COUNT
+
+        header = pack("<4sII", self.HEADER_CUE, length, cue_point_count)
+        return b"".join([header, *encoded_cue_points])
+
+
 class RiffChunk(Chunk):
     """
     The second level WAVE chunk in a RIFF file.
@@ -895,11 +1200,19 @@ class RiffChunk(Chunk):
 
     HEADER_RIFF = b"RIFF"
     HEADER_WAVE = b"WAVE"
-    CHUNK_HEADER_MAP = {b"fmt ": FormatChunk, b"data": DataChunk, b"cart": CartChunk}
+    CHUNK_HEADER_MAP = {
+        b"fmt ": FormatChunk,
+        b"data": DataChunk,
+        b"cart": CartChunk,
+        b"LIST": ListChunk,
+        b"cue ": CueChunk,
+    }
 
     CHUNK_FORMAT = b"fmt "
     CHUNK_DATA = b"data"
     CHUNK_CART = b"cart"
+    CHUNK_CUE = b"cue "
+    CHUNK_LIST = b"LIST"
 
     OFFSET_SUB_TYPE = 8
     OFFSET_CHUNKS_START = 12
@@ -983,10 +1296,10 @@ class RiffChunk(Chunk):
 
         # Check we have at least a format and data chunk
 
-        if not self.CHUNK_FORMAT in self.sub_chunks:
+        if self.CHUNK_FORMAT not in self.sub_chunks:
             raise InvalidWaveException("Valid wave files must have a format chunk")
 
-        if not self.CHUNK_DATA in self.sub_chunks:
+        if self.CHUNK_DATA not in self.sub_chunks:
             raise InvalidWaveException("Valid wave files must have a data chunk")
 
         # Build our chunks up in order
@@ -996,6 +1309,12 @@ class RiffChunk(Chunk):
 
         if self.CHUNK_CART in self.sub_chunks:
             chunk_bytes.append(self.sub_chunks.get(self.CHUNK_CART).to_bytes())
+
+        if self.CHUNK_LIST in self.sub_chunks:
+            chunk_bytes.append(self.sub_chunks.get(self.CHUNK_LIST).to_bytes())
+
+        if self.CHUNK_CUE in self.sub_chunks:
+            chunk_bytes.append(self.sub_chunks.get(self.CHUNK_CUE).to_bytes())
 
         chunk_bytes.append(self.sub_chunks.get(self.CHUNK_DATA).to_bytes())
 
