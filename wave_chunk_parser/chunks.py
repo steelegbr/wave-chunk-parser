@@ -893,28 +893,29 @@ class LabelChunk(Chunk):
 
     HEADER_LABEL = b"labl"
     OFFSET_LABEL = 4
+    OFFSET_HEADER = 4
 
     __id: int
-    __text: str
+    __label: str
 
-    def __init__(self, id: int, text: str):
+    def __init__(self, id: int, label: str):
         self.__id = id
-        self.__text = text
+        self.__label = label
 
     @property
     def get_name(self) -> str:
         self.HEADER_LABEL
 
     def to_bytes(self) -> List[bytes]:
-        encoded_text = encode_string(self.__text)
-        encoded_text_length = len(encoded_text)
+        encoded_label = encode_string(self.__label)
+        encoded_label_length = len(encoded_label)
 
         return pack(
-            f"<4sII{encoded_text_length}s",
+            f"<4sII{encoded_label_length}s",
             self.HEADER_LABEL,
-            encoded_text_length + self.OFFSET_LABEL,
+            encoded_label_length + self.OFFSET_LABEL,
             self.__id,
-            encoded_text,
+            encoded_label,
         )
 
     @classmethod
@@ -927,8 +928,29 @@ class LabelChunk(Chunk):
 
         # Read the rest of the header
 
-        id, raw_text = f"<I{length - cls.OFFSET_LABEL}s"
-        return LabelChunk(id, decode_string(raw_text))
+        new_id, raw_label = unpack(
+            f"<I{length - cls.OFFSET_LABEL}s",
+            seek_and_read(
+                file_handle,
+                offset + cls.OFFSET_CHUNK_CONTENT,
+                length,
+            ),
+        )
+        return LabelChunk(new_id, decode_string(raw_label))
+
+    @property
+    def id(self) -> str:
+        """
+        The cue point ID this label is for.
+        """
+        return self.__id
+
+    @property
+    def label(self) -> str:
+        """
+        The label value.
+        """
+        return self.__label
 
 
 class RiffChunk(Chunk):

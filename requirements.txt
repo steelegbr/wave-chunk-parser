@@ -1,1 +1,4 @@
-
+coverage
+numpy
+parameterized
+unidecode
