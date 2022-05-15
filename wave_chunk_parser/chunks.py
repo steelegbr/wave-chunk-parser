@@ -1105,7 +1105,7 @@ class CuePoint(Chunk):
 
     @property
     def get_name(self) -> str:
-        return
+        pass # Doesn't actually have a value for this!
 
     def to_bytes(self) -> List[bytes]:
         return pack(
