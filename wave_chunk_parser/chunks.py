@@ -1290,10 +1290,10 @@ class RiffChunk(Chunk):
 
         # Check we have at least a format and data chunk
 
-        if not self.CHUNK_FORMAT in self.sub_chunks:
+        if self.CHUNK_FORMAT not in self.sub_chunks:
             raise InvalidWaveException("Valid wave files must have a format chunk")
 
-        if not self.CHUNK_DATA in self.sub_chunks:
+        if self.CHUNK_DATA not in self.sub_chunks:
             raise InvalidWaveException("Valid wave files must have a data chunk")
 
         # Build our chunks up in order
