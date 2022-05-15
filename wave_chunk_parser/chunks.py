@@ -960,8 +960,10 @@ class ListChunk(Chunk):
 
     __sub_chunks: List[Chunk] = []
 
-    HEADER_LIST = b"adlt"
-    OFFSET_SUBCHUNKS = 8
+    HEADER_LIST = b"LIST"
+    HEADER_ASSOC = b"adtl"
+    LENGTH_ASSOC = 4
+    OFFSET_SUBCHUNKS = 12
     CHUNK_HEADER_MAP = {
         b"labl": LabelChunk,
     }
@@ -976,7 +978,7 @@ class ListChunk(Chunk):
 
         (header_str, length) = cls.read_header(file_handle, offset)
         if not header_str == cls.HEADER_LIST:
-            raise InvalidHeaderException("List header must start with adlt")
+            raise InvalidHeaderException("List header must start with list")
 
         # Read in the sub chunks
 
@@ -1003,7 +1005,9 @@ class ListChunk(Chunk):
         combined_sub_chunks = b"".join(encoded_sub_chunks)
         length = len(combined_sub_chunks)
 
-        header = pack("<4sI", self.HEADER_LIST, length)
+        header = pack(
+            "<4sI4s", self.HEADER_LIST, length + self.LENGTH_ASSOC, self.HEADER_ASSOC
+        )
         return b"".join([header, combined_sub_chunks])
 
     @property
@@ -1025,7 +1029,7 @@ class CuePoint(Chunk):
 
     __id: int
     __position: int
-    __data_chunk_id: int
+    __data_chunk_id: str
     __chunk_start: int
     __block_start: int
     __sample_offset: int
@@ -1036,7 +1040,7 @@ class CuePoint(Chunk):
         self,
         id: int,
         position: int,
-        data_chunk_id: int,
+        data_chunk_id: str,
         chunk_start: int,
         block_start: int,
         sample_offset: int,
@@ -1051,7 +1055,7 @@ class CuePoint(Chunk):
     @classmethod
     def from_file(cls, file_handle: BinaryIO, offset: int) -> CuePoint:
         (id, position, data_chunk_id, chunk_start, block_start, sample_offset) = unpack(
-            "<IIIIII", seek_and_read(file_handle, offset, cls.LENGTH_CUE)
+            "<II4sIII", seek_and_read(file_handle, offset, cls.LENGTH_CUE)
         )
         return CuePoint(
             id, position, data_chunk_id, chunk_start, block_start, sample_offset
@@ -1067,14 +1071,14 @@ class CuePoint(Chunk):
     @property
     def position(self) -> int:
         """
-        The index of this cue point in a list.
+        The position of the cue point.
         """
         return self.__position
 
     @property
-    def data_chunk_id(self) -> int:
+    def data_chunk_id(self) -> str:
         """
-        The data chunk number this is from. Our simple implementation always assumes 0.
+        The data chunk number this is from. Our simple implementation always assumes b"data".
         """
         return self.__data_chunk_id
 
@@ -1105,7 +1109,7 @@ class CuePoint(Chunk):
 
     def to_bytes(self) -> List[bytes]:
         return pack(
-            "<IIIIII",
+            "<II4sIII",
             self.id,
             self.position,
             self.data_chunk_id,
@@ -1194,13 +1198,15 @@ class RiffChunk(Chunk):
         b"fmt ": FormatChunk,
         b"data": DataChunk,
         b"cart": CartChunk,
-        b"adlt": ListChunk,
+        b"LIST": ListChunk,
         b"cue ": CueChunk,
     }
 
     CHUNK_FORMAT = b"fmt "
     CHUNK_DATA = b"data"
     CHUNK_CART = b"cart"
+    CHUNK_CUE = b"cue "
+    CHUNK_LIST = b"LIST"
 
     OFFSET_SUB_TYPE = 8
     OFFSET_CHUNKS_START = 12
@@ -1297,6 +1303,12 @@ class RiffChunk(Chunk):
 
         if self.CHUNK_CART in self.sub_chunks:
             chunk_bytes.append(self.sub_chunks.get(self.CHUNK_CART).to_bytes())
+
+        if self.CHUNK_LIST in self.sub_chunks:
+            chunk_bytes.append(self.sub_chunks.get(self.CHUNK_LIST).to_bytes())
+
+        if self.CHUNK_CUE in self.sub_chunks:
+            chunk_bytes.append(self.sub_chunks.get(self.CHUNK_CUE).to_bytes())
 
         chunk_bytes.append(self.sub_chunks.get(self.CHUNK_DATA).to_bytes())
 

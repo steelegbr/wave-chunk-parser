@@ -26,11 +26,11 @@ class TestCuePoint(TestCase):
             (
                 1,
                 1,
-                0,
+                b"data",
                 0,
                 0,
                 12345,
-                b"\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0090\x00\x00",
+                b"\x01\x00\x00\x00\x01\x00\x00\x00data\x00\x00\x00\x00\x00\x00\x00\x0090\x00\x00",
             )
         ]
     )
@@ -60,7 +60,7 @@ class TestCuePoint(TestCase):
                 0,
                 1,
                 1,
-                0,
+                b"data",
                 0,
                 0,
                 12345,
@@ -73,7 +73,7 @@ class TestCuePoint(TestCase):
         offset: int,
         expected_id: int,
         expected_position: int,
-        expected_data_chunk_id: int,
+        expected_data_chunk_id: str,
         expected_chunk_start: int,
         expected_block_start: int,
         expected_sample_offset: int,

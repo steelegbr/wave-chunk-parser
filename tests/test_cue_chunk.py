@@ -24,8 +24,11 @@ class TestCueChunk(TestCase):
     @parameterized.expand(
         [
             (
-                [CuePoint(1, 1, 0, 0, 0, 12345), CuePoint(2, 2, 0, 0, 0, 54321)],
-                b"cue 4\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0090\x00\x00\x02\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x001\xd4\x00\x00",
+                [
+                    CuePoint(1, 1, b"data", 0, 0, 12345),
+                    CuePoint(2, 2, b"data", 0, 0, 54321),
+                ],
+                b"cue 4\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00data\x00\x00\x00\x00\x00\x00\x00\x0090\x00\x00\x02\x00\x00\x00\x02\x00\x00\x00data\x00\x00\x00\x00\x00\x00\x00\x001\xd4\x00\x00",
             )
         ]
     )
@@ -46,7 +49,10 @@ class TestCueChunk(TestCase):
             (
                 "./tests/files/cue_chunk.blob",
                 0,
-                [CuePoint(1, 1, 0, 0, 0, 12345), CuePoint(2, 2, 0, 0, 0, 54321)],
+                [
+                    CuePoint(1, 1, b"data", 0, 0, 12345),
+                    CuePoint(2, 2, b"data", 0, 0, 54321),
+                ],
             )
         ]
     )
