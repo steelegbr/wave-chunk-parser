@@ -904,7 +904,7 @@ class LabelChunk(Chunk):
 
     @property
     def get_name(self) -> str:
-        self.HEADER_LABEL
+        return self.HEADER_LABEL
 
     def to_bytes(self) -> List[bytes]:
         encoded_label = encode_string(self.__label)
@@ -1170,7 +1170,7 @@ class CueChunk(Chunk):
 
     @property
     def get_name(self) -> str:
-        self.HEADER_CUE
+        return self.HEADER_CUE
 
     @property
     def cue_points(self) -> List[CuePoint]:
