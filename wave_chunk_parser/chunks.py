@@ -953,6 +953,71 @@ class LabelChunk(Chunk):
         return self.__label
 
 
+class ListChunk(Chunk):
+    """
+    Associated data list chunk. In this implementation, limited to labl children.
+    """
+
+    __sub_chunks: List[Chunk] = []
+
+    HEADER_LIST = b"adlt"
+    OFFSET_SUBCHUNKS = 8
+    CHUNK_HEADER_MAP = {
+        b"labl": LabelChunk,
+    }
+
+    def __init__(self, sub_chunks: List[Chunk]):
+        self.__sub_chunks = sub_chunks
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> Chunk:
+
+        # Sanity checks
+
+        (header_str, length) = cls.read_header(file_handle, offset)
+        if not header_str == cls.HEADER_LIST:
+            raise InvalidHeaderException("List header must start with adlt")
+
+        # Read in the sub chunks
+
+        current_offset = offset + cls.OFFSET_SUBCHUNKS
+        end_of_chunk = offset + length
+        sub_chunks = []
+
+        while current_offset < end_of_chunk:
+            (current_header, current_length) = cls.read_header(
+                file_handle, current_offset
+            )
+            chunk_type = cls.CHUNK_HEADER_MAP.get(current_header)
+
+            if chunk_type:
+                current_sub_chunk = chunk_type.from_file(file_handle, current_offset)
+                sub_chunks.append(current_sub_chunk)
+
+            current_offset += current_length + cls.OFFSET_CHUNK_CONTENT
+
+        return ListChunk(sub_chunks)
+
+    def to_bytes(self) -> List[bytes]:
+        encoded_sub_chunks = [sub_chunk.to_bytes() for sub_chunk in self.sub_chunks]
+        combined_sub_chunks = b"".join(encoded_sub_chunks)
+        length = len(combined_sub_chunks)
+
+        header = pack("<4sI", self.HEADER_LIST, length)
+        return b"".join([header, combined_sub_chunks])
+
+    @property
+    def sub_chunks(self) -> List[Chunk]:
+        """
+        Sub chunks in the list
+        """
+        return self.__sub_chunks
+
+    @property
+    def get_name(self) -> str:
+        return self.HEADER_LIST
+
+
 class RiffChunk(Chunk):
     """
     The second level WAVE chunk in a RIFF file.
@@ -962,7 +1027,12 @@ class RiffChunk(Chunk):
 
     HEADER_RIFF = b"RIFF"
     HEADER_WAVE = b"WAVE"
-    CHUNK_HEADER_MAP = {b"fmt ": FormatChunk, b"data": DataChunk, b"cart": CartChunk}
+    CHUNK_HEADER_MAP = {
+        b"fmt ": FormatChunk,
+        b"data": DataChunk,
+        b"cart": CartChunk,
+        b"adlt": ListChunk,
+    }
 
     CHUNK_FORMAT = b"fmt "
     CHUNK_DATA = b"data"
