@@ -1115,6 +1115,72 @@ class CuePoint(Chunk):
         )
 
 
+class CueChunk(Chunk):
+    """
+    A list of cue points
+    """
+
+    __cue_points: List[CuePoint] = []
+
+    HEADER_CUE = b"cue "
+    OFFSET_CUE_COUNT = 8
+    OFFSET_CUE_POINTS = 12
+    LENGTH_CUE_POINT = 24
+    LENGTH_CUE_COUNT = 4
+
+    def __init__(self, cue_points: List[CuePoint]) -> CueChunk:
+        self.__cue_points = cue_points
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> CueChunk:
+
+        # Sanity checks
+
+        (header_str, length) = cls.read_header(file_handle, offset)
+        if not header_str == cls.HEADER_CUE:
+            raise InvalidHeaderException("Cue point chunk must start with cue")
+
+        # Read from the chunk
+
+        (sub_chunk_count,) = unpack(
+            "<I",
+            seek_and_read(
+                file_handle, offset + cls.OFFSET_CUE_COUNT, cls.LENGTH_CUE_COUNT
+            ),
+        )
+        if length is not sub_chunk_count * cls.LENGTH_CUE_POINT + cls.LENGTH_CUE_COUNT:
+            raise InvalidHeaderException(
+                f"Cue chunk length of {length} does not match for {sub_chunk_count} cue points"
+            )
+
+        cue_points = []
+        current_offset = offset + cls.OFFSET_CUE_POINTS
+        end_of_chunk = offset + length
+
+        while current_offset < end_of_chunk:
+            current_cue_point = CuePoint.from_file(file_handle, current_offset)
+            cue_points.append(current_cue_point)
+            current_offset += cls.LENGTH_CUE_POINT
+
+        return CueChunk(cue_points)
+
+    @property
+    def get_name(self) -> str:
+        self.HEADER_CUE
+
+    @property
+    def cue_points(self) -> List[CuePoint]:
+        return self.__cue_points
+
+    def to_bytes(self) -> List[bytes]:
+        encoded_cue_points = [cue_point.to_bytes() for cue_point in self.cue_points]
+        cue_point_count = len(self.cue_points)
+        length = cue_point_count * self.LENGTH_CUE_POINT + self.LENGTH_CUE_COUNT
+
+        header = pack("<4sII", self.HEADER_CUE, length, cue_point_count)
+        return b"".join([header, *encoded_cue_points])
+
+
 class RiffChunk(Chunk):
     """
     The second level WAVE chunk in a RIFF file.
@@ -1129,6 +1195,7 @@ class RiffChunk(Chunk):
         b"data": DataChunk,
         b"cart": CartChunk,
         b"adlt": ListChunk,
+        b"cue ": CueChunk,
     }
 
     CHUNK_FORMAT = b"fmt "
