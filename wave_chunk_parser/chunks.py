@@ -1,5 +1,5 @@
 """
-   Copyright 2020 Marc Steele
+   Copyright 2020-2022 Marc Steele
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -884,6 +884,51 @@ class CartChunk(Chunk):
         A freeform text field. Used by Master Control and friends to store extra metadata in XML, JSON, etc.
         """
         return self.__tag_text
+
+
+class LabelChunk(Chunk):
+    """
+    A label associated with a cue point
+    """
+
+    HEADER_LABEL = b"labl"
+    OFFSET_LABEL = 4
+
+    __id: int
+    __text: str
+
+    def __init__(self, id: int, text: str):
+        self.__id = id
+        self.__text = text
+
+    @property
+    def get_name(self) -> str:
+        self.HEADER_LABEL
+
+    def to_bytes(self) -> List[bytes]:
+        encoded_text = encode_string(self.__text)
+        encoded_text_length = len(encoded_text)
+
+        return pack(
+            f"<4sII{encoded_text_length}s",
+            self.HEADER_LABEL,
+            encoded_text_length + self.OFFSET_LABEL,
+            self.__id,
+            encoded_text,
+        )
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> Chunk:
+        # Sanity checks
+
+        (header_str, length) = cls.read_header(file_handle, offset)
+        if not header_str == cls.HEADER_LABEL:
+            raise InvalidHeaderException("Label header must start with label")
+
+        # Read the rest of the header
+
+        id, raw_text = f"<I{length - cls.OFFSET_LABEL}s"
+        return LabelChunk(id, decode_string(raw_text))
 
 
 class RiffChunk(Chunk):
