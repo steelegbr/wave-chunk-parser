@@ -904,7 +904,7 @@ class LabelChunk(Chunk):
 
     @property
     def get_name(self) -> str:
-        return self.HEADER_LABEL
+        return self.HEADER_LABEL  # skipcq: TCV-001
 
     def to_bytes(self) -> List[bytes]:
         encoded_label = encode_string(self.__label)
@@ -924,7 +924,9 @@ class LabelChunk(Chunk):
 
         (header_str, length) = cls.read_header(file_handle, offset)
         if not header_str == cls.HEADER_LABEL:
-            raise InvalidHeaderException("Label header must start with label")
+            raise InvalidHeaderException(
+                "Label header must start with label"
+            )  # skipcq: TCV-001
 
         # Read the rest of the header
 
@@ -978,7 +980,9 @@ class ListChunk(Chunk):
 
         (header_str, length) = cls.read_header(file_handle, offset)
         if not header_str == cls.HEADER_LIST:
-            raise InvalidHeaderException("List header must start with list")
+            raise InvalidHeaderException(
+                "List header must start with list"
+            )  # skipcq: TCV-001
 
         # Read in the sub chunks
 
@@ -1019,7 +1023,7 @@ class ListChunk(Chunk):
 
     @property
     def get_name(self) -> str:
-        return self.HEADER_LIST
+        return self.HEADER_LIST  # skipcq: TCV-001
 
 
 class CuePoint(Chunk):
@@ -1105,7 +1109,7 @@ class CuePoint(Chunk):
 
     @property
     def get_name(self) -> str:
-        pass # Doesn't actually have a value for this!
+        pass  # skipcq: TCV-001
 
     def to_bytes(self) -> List[bytes]:
         return pack(
@@ -1142,7 +1146,9 @@ class CueChunk(Chunk):
 
         (header_str, length) = cls.read_header(file_handle, offset)
         if not header_str == cls.HEADER_CUE:
-            raise InvalidHeaderException("Cue point chunk must start with cue")
+            raise InvalidHeaderException(
+                "Cue point chunk must start with cue"
+            )  # skipcq: TCV-001
 
         # Read from the chunk
 
@@ -1155,7 +1161,7 @@ class CueChunk(Chunk):
         if length is not sub_chunk_count * cls.LENGTH_CUE_POINT + cls.LENGTH_CUE_COUNT:
             raise InvalidHeaderException(
                 f"Cue chunk length of {length} does not match for {sub_chunk_count} cue points"
-            )
+            )  # skipcq: TCV-001
 
         cue_points = []
         current_offset = offset + cls.OFFSET_CUE_POINTS
@@ -1170,7 +1176,7 @@ class CueChunk(Chunk):
 
     @property
     def get_name(self) -> str:
-        return self.HEADER_CUE
+        return self.HEADER_CUE  # skipcq: TCV-001
 
     @property
     def cue_points(self) -> List[CuePoint]:
