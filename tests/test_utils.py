@@ -14,7 +14,8 @@
    limitations under the License.
 """
 
-from wave_chunk_parser.utils import seek_and_read
+from parameterized import parameterized
+from wave_chunk_parser.utils import null_terminate, seek_and_read
 from unittest import TestCase
 
 
@@ -48,3 +49,20 @@ class TestFormatChunk(TestCase):
         with self.assertRaises(ValueError) as context:
             seek_and_read(True, 0, 0)
             self.assertIn("We need to read at least one byte!", context.exception)
+
+    @parameterized.expand(
+        [
+            (b"Length 1234", True, b"Length 1234\x00"),
+            (b"Length 12345", True, b"Length 12345\x00\x00"),
+            (b"Length 1234", False, b"Length 1234\x00"),
+            (b"Length 12345", False, b"Length 12345\x00"),
+        ]
+    )
+    def test_null_terminate_expand(
+        self, string_to_encode: str, make_even: bool, expected: str
+    ):
+        """
+        Ensure we can null terminate and pad
+        """
+        actual = null_terminate(string_to_encode, make_even)
+        self.assertEqual(expected, actual)

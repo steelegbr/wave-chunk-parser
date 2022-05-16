@@ -25,7 +25,7 @@ class TestListChunk(TestCase):
         [
             (
                 [LabelChunk(1, "Label 1"), LabelChunk(2, "Label 2")],
-                b"LIST*\x00\x00\x00adtllabl\x0b\x00\x00\x00\x01\x00\x00\x00Label 1labl\x0b\x00\x00\x00\x02\x00\x00\x00Label 2",
+                b"LIST,\x00\x00\x00adtllabl\x0c\x00\x00\x00\x01\x00\x00\x00Label 1\x00labl\x0c\x00\x00\x00\x02\x00\x00\x00Label 2\x00",
             )
         ]
     )

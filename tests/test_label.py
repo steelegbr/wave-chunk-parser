@@ -25,7 +25,7 @@ class TestLabelChunk(TestCase):
             (
                 1,
                 "The B@nd - 'Funky' S0ng!",
-                b"labl\x1c\x00\x00\x00\x01\x00\x00\x00The B@nd - 'Funky' S0ng!",
+                b"labl\x1e\x00\x00\x00\x01\x00\x00\x00The B@nd - 'Funky' S0ng!\x00\x00",
             )
         ]
     )

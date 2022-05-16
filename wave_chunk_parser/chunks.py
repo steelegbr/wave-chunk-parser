@@ -28,7 +28,12 @@ from functools import reduce
 import numpy as np
 from struct import unpack, pack
 from typing import BinaryIO, Dict, List, Tuple
-from wave_chunk_parser.utils import decode_string, encode_string, seek_and_read
+from wave_chunk_parser.utils import (
+    decode_string,
+    encode_string,
+    null_terminate,
+    seek_and_read,
+)
 
 
 class Chunk(ABC):
@@ -907,7 +912,7 @@ class LabelChunk(Chunk):
         return self.HEADER_LABEL  # skipcq: TCV-001
 
     def to_bytes(self) -> List[bytes]:
-        encoded_label = encode_string(self.__label)
+        encoded_label = null_terminate(encode_string(self.__label), True)
         encoded_label_length = len(encoded_label)
 
         return pack(
