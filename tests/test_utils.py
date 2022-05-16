@@ -15,7 +15,7 @@
 """
 
 from parameterized import parameterized
-from wave_chunk_parser.utils import encode_string, null_terminate, seek_and_read
+from wave_chunk_parser.utils import null_terminate, seek_and_read
 from unittest import TestCase
 
 
