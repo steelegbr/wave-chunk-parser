@@ -1,5 +1,5 @@
 """
-   Copyright 2020 Marc Steele
+   Copyright 2020-2022 Marc Steele
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -81,3 +81,14 @@ def encode_string(string: str, encoding: str = "ASCII") -> str:
 
     unidecoded = unidecode(string)
     return unidecoded.encode(encoding)
+
+
+def null_terminate(string: str, make_even_length=False) -> str:
+    """
+    Null terminates a string. Optionally makes the string even length.
+    """
+
+    terminated = string + b"\x00"
+    if make_even_length and len(terminated) % 2:
+        return terminated + b"\x00"
+    return terminated
