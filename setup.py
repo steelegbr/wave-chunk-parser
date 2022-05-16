@@ -1,5 +1,5 @@
 """
-   Copyright 2020 Marc Steele
+   Copyright 2020-2022 Marc Steele
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ with open("README.md", "r", encoding="UTF-8") as fh:
 
 setuptools.setup(
     name="wave-chunk-parser",
-    version="1.0.4",
+    version="1.1.0",
     author="Marc Steele",
     author_email="steelegbr@gmail.com",
     description="Parses and writes WAVE file chunks",
