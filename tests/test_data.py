@@ -14,13 +14,14 @@
    limitations under the License.
 """
 
-from wave_chunk_parser.chunks import DataChunk, FormatChunk, WaveFormat
-from wave_chunk_parser.exceptions import InvalidHeaderException
 import numpy as np
+
+from io import BytesIO
 from parameterized import parameterized
 from typing import Tuple
 from unittest import TestCase
-
+from wave_chunk_parser.chunks import DataChunk, FormatChunk, WaveFormat
+from wave_chunk_parser.exceptions import InvalidHeaderException
 
 class TestDataChunk(TestCase):
     @parameterized.expand(
@@ -60,6 +61,47 @@ class TestDataChunk(TestCase):
             self.assertIsNotNone(chunk)
             self.assertEqual(chunk.get_name, b"data")
             self.assertEqual(samples.shape, expected_shape)
+
+    @parameterized.expand(
+        [
+            (
+                "./tests/files/valid_no_markers.wav",
+                36,
+                FormatChunk(WaveFormat.PCM, False, 2, 44100, 16),
+                (111020, 2),
+            )
+        ]
+    )
+    def test_read_valid_data_chunk_as_blob(
+        self,
+        file_name: str,
+        chunk_offset: int,
+        wave_format: FormatChunk,
+        expected_shape: Tuple[int, int],
+    ):
+        """
+        The data chunk can be read correctly from a blob.
+        """
+
+        #  Arrange
+
+        with open(file_name, "rb") as file:
+            blob = file.read()
+
+        file = BytesIO(blob)
+
+        # Act
+
+        chunk: DataChunk = DataChunk.from_file_with_format(
+            file, chunk_offset, wave_format
+        )
+        samples = chunk.samples
+
+        # Assert
+
+        self.assertIsNotNone(chunk)
+        self.assertEqual(chunk.get_name, b"data")
+        self.assertEqual(samples.shape, expected_shape)
 
     @parameterized.expand(
         [
