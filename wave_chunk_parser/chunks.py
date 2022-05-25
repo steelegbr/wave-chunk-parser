@@ -314,16 +314,20 @@ class DataChunk(Chunk):
         if not wave_format:
             raise ValueError("You must supply a valid format to read the data chunk as")
 
+        # Read in the raw data
+
+        raw = file_handle.read(length)
+
         # Create the object
 
         sample_count = (
             length // wave_format.channels // (wave_format.bits_per_sample // 8)
         )
-        samples = np.memmap(
-            file_handle,
+        samples = np.frombuffer(
+            raw,
             dtype=np.dtype(f"<i{wave_format.bits_per_sample // 8}"),
-            mode="c",
-            shape=(sample_count, wave_format.channels),
+        ).reshape(
+            sample_count, wave_format.channels
         )
 
         return DataChunk(samples)
