@@ -964,6 +964,206 @@ class LabelChunk(Chunk):
         return self.__label
 
 
+
+class NoteChunk(Chunk):
+    """
+    A note associated with a cue point
+    """
+
+    HEADER_NOTE = b"note"
+    OFFSET_NOTE = 4
+    OFFSET_HEADER = 4
+
+    __id: int
+    __note: str
+
+    def __init__(self, id: int, note: str):
+        self.__id = id
+        self.__note = note
+
+    @property
+    def get_name(self) -> str:
+        return self.HEADER_NOTE  # skipcq: TCV-001
+
+    def to_bytes(self) -> List[bytes]:
+        encoded_note = null_terminate(encode_string(self.__note), True)
+        encoded_note_length = len(encoded_note)
+
+        return pack(
+            f"<4sII{encoded_note_length}s",
+            self.HEADER_NOTE,
+            encoded_note_length + self.OFFSET_NOTE,
+            self.__id,
+            encoded_note,
+        )
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> Chunk:
+        # Sanity checks
+
+        (header_str, length) = cls.read_header(file_handle, offset)
+        if not header_str == cls.HEADER_NOTE:
+            raise InvalidHeaderException(
+                "Note header must start with note"
+            )  # skipcq: TCV-001
+
+        # Read the rest of the header
+
+        new_id, raw_note = unpack(
+            f"<I{length - cls.OFFSET_NOTE}s",
+            seek_and_read(
+                file_handle,
+                offset + cls.OFFSET_CHUNK_CONTENT,
+                length,
+            ),
+        )
+        return NoteChunk(new_id, decode_string(raw_note))
+
+    @property
+    def id(self) -> str:
+        """
+        The cue point ID this note is for.
+        """
+        return self.__id
+
+    @property
+    def note(self) -> str:
+        """
+        The note value.
+        """
+        return self.__note
+
+
+
+class LabeledTextChunk(Chunk):
+    """
+    A labeled text
+    """
+
+    HEADER_LABEL = b"ltxt"
+    OFFSET_LABEL = 20
+    OFFSET_HEADER = 4
+
+    __id: int
+    __sample_length: int
+    __purpose: str
+    __country: int
+    __language: int
+    __dialect: int
+    __codepage: int
+    __label: str
+
+    def __init__(self, id: int, sample_length: int, purpose: str, country: int, language: int, dialect: int, codepage: int, label: str):
+        self.__id = id
+        self.__sample_length = sample_length
+        self.__purpose = purpose
+        self.__country = country
+        self.__language = language
+        self.__dialect = dialect
+        self.__codepage = codepage
+        self.__label = label if label else ''
+
+
+    @property
+    def get_name(self) -> str:
+        return self.HEADER_LABEL  # skipcq: TCV-001
+
+    def to_bytes(self) -> List[bytes]:
+        encoded_label = null_terminate(encode_string(self.__label), True)
+        encoded_label_length = len(encoded_label)
+
+        return pack(
+            f"<4sIII4sHHHH{encoded_label_length}s",
+            self.HEADER_LABEL,
+            encoded_label_length + self.OFFSET_LABEL,
+            self.__id,
+            self.__sample_length,
+            self.__purpose,
+            self.__country,
+            self.__language,
+            self.__dialect,
+            self.__codepage,
+            encoded_label,
+        )
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> Chunk:
+        # Sanity checks
+
+        (header_str, length) = cls.read_header(file_handle, offset)
+        if not header_str == cls.HEADER_LABEL:
+            raise InvalidHeaderException(
+                "Label header must start with label"
+            )  # skipcq: TCV-001
+
+        # Read the rest of the header
+        new_id, sample_length, purpose, country, language, dialect, codepage, raw_label = unpack(
+            f"<II4sHHHH{length - cls.OFFSET_LABEL}s",
+            seek_and_read(
+                file_handle,
+                offset + cls.OFFSET_CHUNK_CONTENT,
+                length,
+            ),
+        )
+        return LabeledTextChunk(new_id, sample_length, purpose, country, language, dialect, codepage, decode_string(raw_label))
+
+    @property
+    def id(self) -> str:
+        """
+        The ID this labeled text is for.
+        """
+        return self.__id
+
+    @property
+    def sample_length(self) -> int:
+        """
+        The  number of sample points in the segment.
+        """
+        return self.__sample_length
+
+    @property
+    def purpose(self) -> str:
+        """
+        The purpose of labeled text
+        """
+        return self.__purpose
+
+    @property
+    def country(self) -> int:
+        """
+        The country of labeled text
+        """
+        return self.__country
+
+    @property
+    def language(self) -> int:
+        """
+        The language of labeled text
+        """
+        return self.__language
+
+    @property
+    def dialect(self) -> int:
+        """
+        The dialect of labeled text
+        """
+        return self.__dialect
+
+    @property
+    def codepage(self) -> int:
+        """
+        The codepage of labeled text
+        """
+        return self.__codepage
+
+    @property
+    def label(self) -> str:
+        """
+        The label value.
+        """
+        return self.__label
+
+
 class ListChunk(Chunk):
     """
     Associated data list chunk. In this implementation, limited to labl children.
@@ -977,6 +1177,8 @@ class ListChunk(Chunk):
     OFFSET_SUBCHUNKS = 12
     CHUNK_HEADER_MAP = {
         b"labl": LabelChunk,
+        b"note": NoteChunk,
+        b"ltxt": LabeledTextChunk,
     }
 
     def __init__(self, sub_chunks: List[Chunk]):
