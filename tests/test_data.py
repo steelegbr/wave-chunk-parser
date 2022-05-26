@@ -23,6 +23,7 @@ from unittest import TestCase
 from wave_chunk_parser.chunks import DataChunk, FormatChunk, WaveFormat
 from wave_chunk_parser.exceptions import InvalidHeaderException
 
+
 class TestDataChunk(TestCase):
     @parameterized.expand(
         [

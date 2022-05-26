@@ -7,14 +7,23 @@ env:
 
 jobs:
   linting:
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout the commit
         uses: actions/checkout@v1
-      - name: Black Code Formatter
-        uses: lgeiger/black-action@master
         with:
-          args: ". --check"
+          ref: ${{ github.event.pull_request.head.sha }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Python ${{ env.PYTHON_VER }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ env.PYTHON_VER }}
+      - name: Install black
+        run: |
+          python -m pip install --upgrade pip
+          pip install black
+      - name: Python unit tests
+        run: |
+          black .
   unit-tests:
     runs-on: ubuntu-latest
     steps:
