@@ -1167,7 +1167,7 @@ class CueChunk(Chunk):
                 file_handle, offset + cls.OFFSET_CUE_COUNT, cls.LENGTH_CUE_COUNT
             ),
         )
-        if length is not sub_chunk_count * cls.LENGTH_CUE_POINT + cls.LENGTH_CUE_COUNT:
+        if length != sub_chunk_count * cls.LENGTH_CUE_POINT + cls.LENGTH_CUE_COUNT:
             raise InvalidHeaderException(
                 f"Cue chunk length of {length} does not match for {sub_chunk_count} cue points"
             )  # skipcq: TCV-001
