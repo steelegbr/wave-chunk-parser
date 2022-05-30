@@ -1210,6 +1210,11 @@ class ListChunk(Chunk):
             if chunk_type:
                 current_sub_chunk = chunk_type.from_file(file_handle, current_offset)
                 sub_chunks.append(current_sub_chunk)
+            
+            else:
+                # create generic Chunk for holding unsupported header and datas
+                current_sub_chunk = GenericChunk.from_file(file_handle, current_offset, current_header, current_length)
+                sub_chunks.append(current_sub_chunk)
 
             current_offset += current_length + cls.OFFSET_CHUNK_CONTENT
 
@@ -1402,6 +1407,66 @@ class CueChunk(Chunk):
         return b"".join([header, *encoded_cue_points])
 
 
+
+class GenericChunk(Chunk):
+    """
+    Generic class for handling chunk not supported.
+    """
+
+    def __init__(self, header: bytes, datas: np.ndarray[np.int]):
+        """
+        Creates a new instance of the generic chunk.
+
+        Args:
+            datas (np.ndarray[np.int]): The data to work with.
+        """
+        self.__header = header
+        self.__datas = datas
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int, header: bytes, length: int) -> Chunk:
+        """
+        Reads the unsupported data chunk from a file 
+        """
+        (header_str, length) = cls.read_header(file_handle, offset)
+
+        # Read in the raw data
+
+        raw = file_handle.read(length)
+
+        # Create the object
+
+        datas = np.frombuffer(raw, dtype=np.dtype(np.uint8))
+
+        return GenericChunk(header_str, datas)
+
+
+    @property
+    def datas(self) -> np.ndarray[np.uint8]:
+        """
+        The audio sample vectors.
+        """
+        return self.__datas
+
+    def to_bytes(self) -> List[bytes]:
+
+        # Generate the data section
+
+        data = self.__samples.tobytes()
+
+        # Generate the header
+
+        header = pack("<4sI", self.HEADER_DATA, len(data))
+
+        # Splatter it together
+
+        return b"".join([header, data])
+
+    @property
+    def get_name(self) -> str:
+        return self.__header
+
+
 class RiffChunk(Chunk):
     """
     The second level WAVE chunk in a RIFF file.
@@ -1486,6 +1551,12 @@ class RiffChunk(Chunk):
                     )
                 else:
                     chunk = chunk_type.from_file(file_handle, current_offset)
+
+                chunk_map[current_header] = chunk
+            
+            else:
+                # create generic Chunk for holding unsupported header and datas
+                chunk = GenericChunk.from_file(file_handle, current_offset, current_header, current_length)
 
                 chunk_map[current_header] = chunk
 
