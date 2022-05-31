@@ -962,7 +962,6 @@ class LabelChunk(Chunk):
         return self.__label
 
 
-
 class NoteChunk(Chunk):
     """
     A note associated with a cue point
@@ -1032,7 +1031,6 @@ class NoteChunk(Chunk):
         return self.__note
 
 
-
 class LabeledTextChunk(Chunk):
     """
     A labeled text
@@ -1051,7 +1049,17 @@ class LabeledTextChunk(Chunk):
     __codepage: int
     __label: str
 
-    def __init__(self, id: int, sample_length: int, purpose: str, country: int, language: int, dialect: int, codepage: int, label: str):
+    def __init__(
+        self,
+        id: int,
+        sample_length: int,
+        purpose: str,
+        country: int,
+        language: int,
+        dialect: int,
+        codepage: int,
+        label: str,
+    ):
         self.__id = id
         self.__sample_length = sample_length
         self.__purpose = purpose
@@ -1059,8 +1067,7 @@ class LabeledTextChunk(Chunk):
         self.__language = language
         self.__dialect = dialect
         self.__codepage = codepage
-        self.__label = label if label else ''
-
+        self.__label = label if label else ""
 
     @property
     def get_name(self) -> str:
@@ -1095,7 +1102,16 @@ class LabeledTextChunk(Chunk):
             )  # skipcq: TCV-001
 
         # Read the rest of the header
-        new_id, sample_length, purpose, country, language, dialect, codepage, raw_label = unpack(
+        (
+            new_id,
+            sample_length,
+            purpose,
+            country,
+            language,
+            dialect,
+            codepage,
+            raw_label,
+        ) = unpack(
             f"<II4sHHHH{length - cls.OFFSET_LABEL}s",
             seek_and_read(
                 file_handle,
@@ -1103,7 +1119,16 @@ class LabeledTextChunk(Chunk):
                 length,
             ),
         )
-        return LabeledTextChunk(new_id, sample_length, purpose, country, language, dialect, codepage, decode_string(raw_label))
+        return LabeledTextChunk(
+            new_id,
+            sample_length,
+            purpose,
+            country,
+            language,
+            dialect,
+            codepage,
+            decode_string(raw_label),
+        )
 
     @property
     def id(self) -> str:
@@ -1200,7 +1225,9 @@ class ListChunk(Chunk):
         # Read List type
 
         offset += Chunk.OFFSET_CHUNK_CONTENT
-        list_type, = unpack("<4s", seek_and_read(file_handle, offset, ListChunk.LENGTH_LIST_TYPE))
+        (list_type,) = unpack(
+            "<4s", seek_and_read(file_handle, offset, ListChunk.LENGTH_LIST_TYPE)
+        )
 
         # Read in the sub chunks
 
@@ -1217,13 +1244,17 @@ class ListChunk(Chunk):
             if chunk_type:
                 current_sub_chunk = chunk_type.from_file(file_handle, current_offset)
                 sub_chunks.append(current_sub_chunk)
-            
+
             else:
                 # create generic Chunk for holding unsupported header and datas
-                if list_type == b'INFO':
-                    current_sub_chunk = InfoChunk.from_file(file_handle, current_offset, current_header, current_length)
+                if list_type == b"INFO":
+                    current_sub_chunk = InfoChunk.from_file(
+                        file_handle, current_offset, current_header, current_length
+                    )
                 else:
-                    current_sub_chunk = GenericChunk.from_file(file_handle, current_offset, current_header, current_length)
+                    current_sub_chunk = GenericChunk.from_file(
+                        file_handle, current_offset, current_header, current_length
+                    )
                 sub_chunks.append(current_sub_chunk)
 
             current_offset += current_length + cls.OFFSET_CHUNK_CONTENT
@@ -1445,7 +1476,6 @@ class CueChunk(Chunk):
         return b"".join([header, *encoded_cue_points])
 
 
-
 class GenericChunk(Chunk):
     """
     Generic class for handling chunk not supported.
@@ -1462,9 +1492,11 @@ class GenericChunk(Chunk):
         self.__datas = datas
 
     @classmethod
-    def from_file(cls, file_handle: BinaryIO, offset: int, header: bytes, length: int) -> Chunk:
+    def from_file(
+        cls, file_handle: BinaryIO, offset: int, header: bytes, length: int
+    ) -> Chunk:
         """
-        Reads the unsupported data chunk from a file 
+        Reads the unsupported data chunk from a file
         """
         (header_str, length) = cls.read_header(file_handle, offset)
 
@@ -1477,7 +1509,6 @@ class GenericChunk(Chunk):
         datas = np.frombuffer(raw, dtype=np.dtype(np.uint8))
 
         return GenericChunk(header_str, datas)
-
 
     @property
     def datas(self) -> np.ndarray[np.uint8]:
@@ -1522,15 +1553,17 @@ class InfoChunk(Chunk):
         self.__info = info
 
     @classmethod
-    def from_file(cls, file_handle: BinaryIO, offset: int, header: bytes, length: int) -> Chunk:
+    def from_file(
+        cls, file_handle: BinaryIO, offset: int, header: bytes, length: int
+    ) -> Chunk:
         """
-        Reads data chunk from a file 
+        Reads data chunk from a file
         """
         (header_str, length) = cls.read_header(file_handle, offset)
 
         # Read in the raw string
 
-        raw_info, = unpack(f"<{length}s", file_handle.read(length))
+        (raw_info,) = unpack(f"<{length}s", file_handle.read(length))
 
         # Create instance
 
@@ -1556,11 +1589,10 @@ class InfoChunk(Chunk):
         The info string.
         """
         return self.__info
-        
+
     @property
     def get_name(self) -> str:
         return self.__header
-
 
 
 class RiffChunk(Chunk):
@@ -1654,10 +1686,12 @@ class RiffChunk(Chunk):
                     chunk = chunk_type.from_file(file_handle, current_offset)
 
                 chunk_list.append(chunk)
-            
+
             else:
                 # create generic Chunk for holding unsupported header and datas
-                chunk = GenericChunk.from_file(file_handle, current_offset, current_header, current_length)
+                chunk = GenericChunk.from_file(
+                    file_handle, current_offset, current_header, current_length
+                )
 
                 chunk_list.append(chunk)
 
@@ -1686,7 +1720,7 @@ class RiffChunk(Chunk):
             raise InvalidWaveException("Valid wave files must have a data chunk")
 
         # Build our chunks
-        
+
         #  There are no restrictions upon the order of the chunks, except :
         #       the Format chunk must precede the Data chunk. Some inflexibly written programs expect the Format chunk as the first chunk (after the RIFF header)
         #  (source: http://midi.teragonaudio.com/tech/wave.htm)
@@ -1702,7 +1736,6 @@ class RiffChunk(Chunk):
                 continue
 
             chunk_bytes.append(chunk.to_bytes())
-
 
         # Create the header
 
@@ -1741,7 +1774,7 @@ class RiffChunk(Chunk):
 
         if index < len(chunks):
             return chunks[index]
-        
+
         return None
 
     def replace_chunk(self, chunk: Chunk):
