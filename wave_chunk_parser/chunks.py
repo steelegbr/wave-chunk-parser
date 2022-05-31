@@ -1452,11 +1452,11 @@ class GenericChunk(Chunk):
 
         # Generate the data section
 
-        data = self.__samples.tobytes()
+        data = self.__datas.tobytes()
 
         # Generate the header
 
-        header = pack("<4sI", self.HEADER_DATA, len(data))
+        header = pack("<4sI", self.__header, len(data))
 
         # Splatter it together
 
@@ -1472,7 +1472,7 @@ class RiffChunk(Chunk):
     The second level WAVE chunk in a RIFF file.
     """
 
-    __sub_chunks: Dict[str, Chunk] = {}
+    __sub_chunks: List[Chunk] = []
 
     HEADER_RIFF = b"RIFF"
     HEADER_WAVE = b"WAVE"
@@ -1498,7 +1498,7 @@ class RiffChunk(Chunk):
     STRUCT_SUB_TYPE = "<4s"
     STRUCT_RIFF_HEADER = "<4sI4s"
 
-    def __init__(self, sub_chunks: Dict[str, Chunk]) -> None:
+    def __init__(self, sub_chunks: List[Chunk]) -> None:
         self.__sub_chunks = sub_chunks
 
     @classmethod
@@ -1532,7 +1532,7 @@ class RiffChunk(Chunk):
         current_offset = offset + cls.OFFSET_CHUNKS_START
         file_handle.seek(0, 2)
         end_of_file = min(file_handle.tell(), length + current_offset)
-        chunk_map = {}
+        chunk_list = []
 
         while current_offset < end_of_file:
             (current_header, current_length) = cls.read_header(
@@ -1542,29 +1542,34 @@ class RiffChunk(Chunk):
 
             if chunk_type:
                 if chunk_type == DataChunk:
-                    if b"fmt " not in chunk_map:
+                    chunk_format = None
+                    for chunk in chunk_list:
+                        if chunk.get_name == b"fmt ":
+                            chunk_format = chunk
+                            break
+                    if not chunk_format:
                         raise InvalidWaveException(
                             "A format chunk must be read before a data chunk!"
                         )
                     chunk = DataChunk.from_file_with_format(
-                        file_handle, current_offset, chunk_map.get(cls.CHUNK_FORMAT)
+                        file_handle, current_offset, chunk_format
                     )
                 else:
                     chunk = chunk_type.from_file(file_handle, current_offset)
 
-                chunk_map[current_header] = chunk
+                chunk_list.append(chunk)
             
             else:
                 # create generic Chunk for holding unsupported header and datas
                 chunk = GenericChunk.from_file(file_handle, current_offset, current_header, current_length)
 
-                chunk_map[current_header] = chunk
+                chunk_list.append(chunk)
 
             # Cycle onto the next chunk
 
             current_offset += current_length + cls.OFFSET_CHUNK_CONTENT
 
-        return RiffChunk(chunk_map)
+        return RiffChunk(chunk_list)
 
     @property
     def sub_chunks(self) -> Dict[str, Chunk]:
@@ -1578,27 +1583,30 @@ class RiffChunk(Chunk):
 
         # Check we have at least a format and data chunk
 
-        if self.CHUNK_FORMAT not in self.sub_chunks:
+        if not self.get_chunk(self.CHUNK_FORMAT):
             raise InvalidWaveException("Valid wave files must have a format chunk")
 
-        if self.CHUNK_DATA not in self.sub_chunks:
+        if not self.get_chunk(self.CHUNK_DATA):
             raise InvalidWaveException("Valid wave files must have a data chunk")
 
-        # Build our chunks up in order
-
+        # Build our chunks
+        
+        #  There are no restrictions upon the order of the chunks, except :
+        #       the Format chunk must precede the Data chunk. Some inflexibly written programs expect the Format chunk as the first chunk (after the RIFF header)
+        #  (source: http://midi.teragonaudio.com/tech/wave.htm)
         chunk_bytes = []
-        chunk_bytes.append(self.sub_chunks.get(self.CHUNK_FORMAT).to_bytes())
+        chunk_bytes.append(self.get_chunk(self.CHUNK_FORMAT).to_bytes())
 
-        if self.CHUNK_CART in self.sub_chunks:
-            chunk_bytes.append(self.sub_chunks.get(self.CHUNK_CART).to_bytes())
+        # Build all other chunks
 
-        if self.CHUNK_LIST in self.sub_chunks:
-            chunk_bytes.append(self.sub_chunks.get(self.CHUNK_LIST).to_bytes())
+        for chunk in self.sub_chunks:
 
-        if self.CHUNK_CUE in self.sub_chunks:
-            chunk_bytes.append(self.sub_chunks.get(self.CHUNK_CUE).to_bytes())
+            if chunk.get_name == self.CHUNK_FORMAT:
+                # already done
+                continue
 
-        chunk_bytes.append(self.sub_chunks.get(self.CHUNK_DATA).to_bytes())
+            chunk_bytes.append(chunk.to_bytes())
+
 
         # Create the header
 
@@ -1612,3 +1620,24 @@ class RiffChunk(Chunk):
         # Create a blob
 
         return b"".join(chunk_bytes)
+
+    def get_chunks(self, chunk_type: str) -> Chunk:
+        """
+        Get all chunks of type name
+        """
+
+        if isinstance(chunk_type, str):
+            chunk_type = str.encode(chunk_type)
+
+        return [ chunk for chunk in self.__sub_chunks if chunk.get_name == chunk_type]
+
+    def get_chunk(self, chunk_type: str, index=0) -> Chunk:
+        """
+        Get chunk by type name
+        """
+
+        chunks = self.get_chunks(chunk_type)
+        if index < len(chunks):
+            return chunks[index]
+        
+        return None
