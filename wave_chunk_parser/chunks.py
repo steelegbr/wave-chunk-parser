@@ -1170,18 +1170,22 @@ class ListChunk(Chunk):
     """
 
     __sub_chunks: List[Chunk] = []
+    __list_type: str
 
     HEADER_LIST = b"LIST"
+    LENGTH_LIST_TYPE = 4
     HEADER_ASSOC = b"adtl"
+    HEADER_INFO = b"INFO"
     LENGTH_ASSOC = 4
-    OFFSET_SUBCHUNKS = 12
+    OFFSET_SUBCHUNKS = 4
     CHUNK_HEADER_MAP = {
         b"labl": LabelChunk,
         b"note": NoteChunk,
         b"ltxt": LabeledTextChunk,
     }
 
-    def __init__(self, sub_chunks: List[Chunk]):
+    def __init__(self, list_type, sub_chunks: List[Chunk]):
+        self.__list_type = list_type
         self.__sub_chunks = sub_chunks
 
     @classmethod
@@ -1194,6 +1198,11 @@ class ListChunk(Chunk):
             raise InvalidHeaderException(
                 "List header must start with list"
             )  # skipcq: TCV-001
+
+        # Read List type
+
+        offset += Chunk.OFFSET_CHUNK_CONTENT
+        list_type, = unpack("<4s", seek_and_read(file_handle, offset, ListChunk.LENGTH_LIST_TYPE))
 
         # Read in the sub chunks
 
@@ -1213,12 +1222,15 @@ class ListChunk(Chunk):
             
             else:
                 # create generic Chunk for holding unsupported header and datas
-                current_sub_chunk = GenericChunk.from_file(file_handle, current_offset, current_header, current_length)
+                if list_type == b'INFO':
+                    current_sub_chunk = InfoChunk.from_file(file_handle, current_offset, current_header, current_length)
+                else:
+                    current_sub_chunk = GenericChunk.from_file(file_handle, current_offset, current_header, current_length)
                 sub_chunks.append(current_sub_chunk)
 
             current_offset += current_length + cls.OFFSET_CHUNK_CONTENT
 
-        return ListChunk(sub_chunks)
+        return ListChunk(list_type, sub_chunks)
 
     def to_bytes(self) -> List[bytes]:
         encoded_sub_chunks = [sub_chunk.to_bytes() for sub_chunk in self.sub_chunks]
@@ -1226,9 +1238,33 @@ class ListChunk(Chunk):
         length = len(combined_sub_chunks)
 
         header = pack(
-            "<4sI4s", self.HEADER_LIST, length + self.LENGTH_ASSOC, self.HEADER_ASSOC
+            "<4sI4s", self.HEADER_LIST, length + self.LENGTH_ASSOC, self.__list_type
         )
         return b"".join([header, combined_sub_chunks])
+
+    def get_chunk(self, chunk_name: str) -> Chunk:
+        """
+        Get sub chunk of type name
+        """
+
+        if isinstance(chunk_name, str):
+            chunk_name = str.encode(chunk_name)
+
+        for chunk in self.__sub_chunks:
+            if chunk.get_name == chunk_name:
+                return chunk
+
+        return None
+
+    def replace_chunk(self, chunk: InfoChunk):
+        """
+        replace or append a info chunk id
+        """
+        for num, _chunk in enumerate(self.__sub_chunks):
+            if chunk.get_name == _chunk.get_name:
+                self.__sub_chunks[num] = chunk
+                return
+        self.__sub_chunks.append(chunk)
 
     @property
     def sub_chunks(self) -> List[Chunk]:
@@ -1240,6 +1276,10 @@ class ListChunk(Chunk):
     @property
     def get_name(self) -> str:
         return self.HEADER_LIST  # skipcq: TCV-001
+
+    @property
+    def get_type(self) -> str:
+        return self.__list_type
 
 
 class CuePoint(Chunk):
@@ -1467,6 +1507,64 @@ class GenericChunk(Chunk):
         return self.__header
 
 
+class InfoChunk(Chunk):
+    """
+    simple string chunk for LIST INFO
+    """
+
+    def __init__(self, header: bytes, info: bytes):
+        """
+        Creates a new instance of chunk.
+        """
+        if isinstance(header, str):
+            header = encode_string(header)
+        self.__header = header
+        if isinstance(info, str):
+            info = encode_string(info)
+        self.__info = info
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int, header: bytes, length: int) -> Chunk:
+        """
+        Reads data chunk from a file 
+        """
+        (header_str, length) = cls.read_header(file_handle, offset)
+
+        # Read in the raw string
+
+        raw_info, = unpack(f"<{length}s", file_handle.read(length))
+
+        # Create instance
+
+        return InfoChunk(header_str, decode_string(raw_info))
+
+    def to_bytes(self) -> List[bytes]:
+
+        # Generate raw string
+
+        encoded_info = null_terminate(self.__info, True)
+        encoded_info_length = len(encoded_info)
+
+        return pack(
+            f"<4sI{encoded_info_length}s",
+            self.__header,
+            encoded_info_length,
+            encoded_info,
+        )
+
+    @property
+    def info(self) -> str:
+        """
+        The info string.
+        """
+        return self.__info
+        
+    @property
+    def get_name(self) -> str:
+        return self.__header
+
+
+
 class RiffChunk(Chunk):
     """
     The second level WAVE chunk in a RIFF file.
@@ -1629,15 +1727,34 @@ class RiffChunk(Chunk):
         if isinstance(chunk_type, str):
             chunk_type = str.encode(chunk_type)
 
-        return [ chunk for chunk in self.__sub_chunks if chunk.get_name == chunk_type]
+        return [chunk for chunk in self.__sub_chunks if chunk.get_name == chunk_type]
 
-    def get_chunk(self, chunk_type: str, index=0) -> Chunk:
+    def get_chunk(self, chunk_name: str, chunk_type=None, index=0) -> Chunk:
         """
-        Get chunk by type name
+        Get chunk by type name (and sub type for chunk LIST)
         """
 
-        chunks = self.get_chunks(chunk_type)
+        chunks = self.get_chunks(chunk_name)
+        if chunk_type:
+            for chunk in chunks:
+                if isinstance(chunk, ListChunk) and chunk.get_type == chunk_type:
+                    return chunk
+            return None
+
         if index < len(chunks):
             return chunks[index]
         
         return None
+
+    def replace_chunk(self, chunk: Chunk):
+        """
+        replace or append a chunk id
+        """
+        for num, _chunk in enumerate(self.__sub_chunks):
+            if chunk.get_name == _chunk.get_name:
+                if isinstance(chunk, ListChunk):
+                    if chunk.get_type != _chunk.get_type:
+                        continue
+                self.__sub_chunks[num] = chunk
+                return
+        self.__sub_chunks.append(chunk)
