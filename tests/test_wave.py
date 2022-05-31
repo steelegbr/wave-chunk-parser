@@ -18,6 +18,7 @@ from wave_chunk_parser.exceptions import InvalidHeaderException, InvalidWaveExce
 from wave_chunk_parser.chunks import (
     CartChunk,
     CartTimer,
+    Chunk,
     CueChunk,
     CuePoint,
     DataChunk,
@@ -40,7 +41,7 @@ class TestWaveChunk(TestCase):
             ("./tests/files/valid_no_markers.wav", [b"fmt ", b"data"]),
         ]
     )
-    def test_read_valid_wave(self, file_name: str, expected_chunks: List[str]):
+    def test_read_valid_wave(self, file_name: str, expected_types: List[Chunk]):
         """
         Read valid wave files.
         """
@@ -58,10 +59,12 @@ class TestWaveChunk(TestCase):
             self.assertIsNotNone(chunk)
             self.assertEqual(chunk.get_name, b"WAVE")
             self.assertIsNotNone(chunk.sub_chunks)
-            self.assertEqual(len(chunk.sub_chunks), len(expected_chunks))
+            self.assertEqual(len(chunk.sub_chunks), len(expected_types))
 
-            for expected_chunk in expected_chunks:
-                self.assertIn(expected_chunk, chunk.sub_chunks)
+            chunk_types = [sub_chunk.get_name for sub_chunk in chunk.sub_chunks]
+
+            for expected_type in expected_types:
+                self.assertIn(expected_type, chunk_types)
 
     def test_encode_wave_with_cart(self):
         """
@@ -70,11 +73,9 @@ class TestWaveChunk(TestCase):
 
         # Arrange
 
-        chunks = {}
+        chunks = []
 
-        chunks[RiffChunk.CHUNK_FORMAT] = FormatChunk(
-            WaveFormat.PCM, False, 2, 44100, 16
-        )
+        chunks.append(FormatChunk(WaveFormat.PCM, False, 2, 44100, 16))
 
         timers = [
             CartTimer("INTs", 0),
@@ -82,38 +83,40 @@ class TestWaveChunk(TestCase):
             CartTimer("SEG ", 108118),
         ]
 
-        chunks[RiffChunk.CHUNK_CART] = CartChunk(
-            "0101",
-            "Test Cart Title",
-            "Test Cart Artist",
-            "TESTCART01",
-            "Someone",
-            "DEMO",
-            "Demo Audio",
-            "Radio!",
-            datetime(1900, 1, 1, 0, 0),
-            datetime(2099, 12, 31, 23, 59, 59),
-            "Hand Crafted",
-            "MK1 Eyeball",
-            "Some stuff goes in here....",
-            32768,
-            timers,
-            "http://www.example.com/",
-            "Load of text goes in here.\r\n",
+        chunks.append(
+            CartChunk(
+                "0101",
+                "Test Cart Title",
+                "Test Cart Artist",
+                "TESTCART01",
+                "Someone",
+                "DEMO",
+                "Demo Audio",
+                "Radio!",
+                datetime(1900, 1, 1, 0, 0),
+                datetime(2099, 12, 31, 23, 59, 59),
+                "Hand Crafted",
+                "MK1 Eyeball",
+                "Some stuff goes in here....",
+                32768,
+                timers,
+                "http://www.example.com/",
+                "Load of text goes in here.\r\n",
+            )
         )
 
-        chunks[RiffChunk.CHUNK_CUE] = CueChunk(
-            [CuePoint(1, 32000, RiffChunk.CHUNK_DATA, 0, 0, 32000)]
-        )
+        chunks.append(CueChunk([CuePoint(1, 32000, RiffChunk.CHUNK_DATA, 0, 0, 32000)]))
 
-        chunks[RiffChunk.CHUNK_LIST] = ListChunk([LabelChunk(1, "Cue Point Test")])
+        chunks.append(
+            ListChunk(ListChunk.HEADER_ASSOC, [LabelChunk(1, "Cue Point Test")])
+        )
 
         with open("./tests/files/valid_no_markers.wav", "rb") as in_file:
             samples = np.memmap(
                 in_file, dtype=np.dtype("<i2"), mode="c", shape=(111020, 2), offset=44
             )
 
-        chunks[RiffChunk.CHUNK_DATA] = DataChunk(samples)
+        chunks.append(DataChunk(samples))
 
         riff = RiffChunk(chunks)
 
@@ -136,18 +139,16 @@ class TestWaveChunk(TestCase):
 
         # Arrange
 
-        chunks = {}
+        chunks = []
 
-        chunks[RiffChunk.CHUNK_FORMAT] = FormatChunk(
-            WaveFormat.PCM, False, 2, 44100, 16
-        )
+        chunks.append(FormatChunk(WaveFormat.PCM, False, 2, 44100, 16))
 
         with open("./tests/files/valid_no_markers.wav", "rb") as in_file:
             samples = np.memmap(
                 in_file, dtype=np.dtype("<i2"), mode="c", shape=(111020, 2), offset=44
             )
 
-        chunks[RiffChunk.CHUNK_DATA] = DataChunk(samples)
+        chunks.append(DataChunk(samples))
 
         riff = RiffChunk(chunks)
 
@@ -269,7 +270,7 @@ class TestWaveChunk(TestCase):
 
         # Arrange
 
-        chunk = RiffChunk({b"fmt ": FormatChunk(WaveFormat.PCM, False, 2, 48000, 16)})
+        chunk = RiffChunk([FormatChunk(WaveFormat.PCM, False, 2, 48000, 16)])
 
         # Act
 
