@@ -33,7 +33,7 @@ class TestListChunk(TestCase):
         """
         Encode a list of labels.
         """
-        chunk = ListChunk(sub_chunks)
+        chunk = ListChunk(ListChunk.HEADER_ASSOC, sub_chunks)
         actual = chunk.to_bytes()
         self.assertEqual(expected, actual)
 
