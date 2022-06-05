@@ -323,10 +323,18 @@ class DataChunk(Chunk):
         sample_count = (
             length // wave_format.channels // (wave_format.bits_per_sample // 8)
         )
-        samples = np.frombuffer(
-            raw,
-            dtype=np.dtype(f"<i{wave_format.bits_per_sample // 8}"),
-        ).reshape(sample_count, wave_format.channels)
+        if wave_format.bits_per_sample / 8 == 3:
+            # use raw data of 3 bytes as sample for 24 bits
+            # [disadvantage: the samples must be converted by caller before processing]
+            samples = np.frombuffer(
+                raw,
+                dtype=np.dtype("V3"),
+            )
+        else:
+            samples = np.frombuffer(
+                raw,
+                dtype=np.dtype(f"<i{wave_format.bits_per_sample // 8}"),
+            ).reshape(sample_count, wave_format.channels)
 
         return DataChunk(samples)
 
