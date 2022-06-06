@@ -103,7 +103,7 @@ class TestFormatChunk(TestCase):
         [
             (
                 WaveFormat.PCM,
-                False,
+                None,
                 2,
                 48000,
                 16,
@@ -111,7 +111,7 @@ class TestFormatChunk(TestCase):
             ),
             (
                 WaveFormat.A_LAW,
-                False,
+                None,
                 1,
                 8000,
                 8,
@@ -119,7 +119,7 @@ class TestFormatChunk(TestCase):
             ),
             (
                 WaveFormat.MU_LAW,
-                False,
+                None,
                 4,
                 44100,
                 16,
@@ -154,23 +154,31 @@ class TestFormatChunk(TestCase):
 
         self.assertEqual(converted, expected_bytes)
 
-    def test_fail_encode_extended_format(self):
+    def test_encode_extended_format(self):
         """
-        We don't successfully encode an extended format chunk.
+        An extended format chunk encodes correctly.
         """
 
         # Arrange
 
-        chunk = FormatChunk(WaveFormat.EXTENDED, True, 2, 48000, 16)
+        chunk = FormatChunk(
+            WaveFormat.EXTENDED,
+            b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x20\x21\x22",  # fake extension !
+            2,
+            48000,
+            16,
+        )
 
+        expected_bytes = (
+            b"fmt (\x00\x00\x00\xfe\xff\x02\x00\x80\xbb\x00\x00\x00\xee\x02\x00\x04\x00\x10\x00"
+            b"\x16\x00"
+            b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x20\x21\x22"
+        )
         # Act
 
-        with self.assertRaises(ExportExtendedFormatException) as context:
-            chunk.to_bytes()
+        converted = chunk.to_bytes()
+        print(converted)
 
-            # Assert
+        # Assert
 
-            self.assertIn(
-                "We don't support converting extended format headers to binary blobs.",
-                context.exception,
-            )
+        self.assertEqual(converted, expected_bytes)
