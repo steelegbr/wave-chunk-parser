@@ -1338,7 +1338,9 @@ class ListChunk(Chunk):
                     )
                 sub_chunks.append(current_sub_chunk)
 
-            current_offset += current_length + cls.OFFSET_CHUNK_CONTENT
+            current_offset += (
+                current_length + cls.OFFSET_CHUNK_CONTENT + current_length % 2
+            )
 
         return ListChunk(list_type, sub_chunks)
 
@@ -1778,7 +1780,9 @@ class RiffChunk(Chunk):
 
             # Cycle onto the next chunk
 
-            current_offset += current_length + cls.OFFSET_CHUNK_CONTENT
+            current_offset += (
+                current_length + cls.OFFSET_CHUNK_CONTENT + current_length % 2
+            )
 
         return RiffChunk(chunk_list)
 
