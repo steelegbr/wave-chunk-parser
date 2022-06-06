@@ -23,6 +23,17 @@ from wave_chunk_parser.chunks import (
 )
 
 
+def smart_dump(args, datas):
+    """ """
+    if args.dump_lines != "":
+        for num, hex in enumerate(hexdump.hexdump(datas, "generator")):
+            if int(args.dump_lines) != 0 and num >= int(args.dump_lines):
+                break
+            print(" ", hex)
+        if (num + 1) * 16 < len(datas):
+            print("  ...")
+
+
 def wave_parse(wave_file, args):
     """
     chunks parse with wave_chunk_parser lib
@@ -82,21 +93,12 @@ def wave_parse(wave_file, args):
 
                     else:
                         print(f"  Sub-Chunk : {sc.get_name}")
-                        for hex in hexdump.hexdump(sc.datas, "generator"):
-                            print(" ", hex)
+                        smart_dump(args, sc.datas)
+
         else:
             if isinstance(chunk, GenericChunk):
                 print(f", len: {len(chunk.datas)}")
-                dump_lines = args.dump_lines
-                if args.dump_lines != "":
-                    for num, hex in enumerate(
-                        hexdump.hexdump(chunk.datas, "generator")
-                    ):
-                        if int(args.dump_lines) != 0 and num >= int(args.dump_lines):
-                            break
-                        print(" ", hex)
-                    if num * 16 < len(chunk.datas):
-                        print("  ...")
+                smart_dump(args, chunk.datas)
 
     print()
     return riff_chunk
