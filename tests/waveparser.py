@@ -38,10 +38,17 @@ def wave_parse(wave_file, args):
         if chunk.get_name == b"fmt ":
             print()
             print(f"  format: {chunk.format}")
-            print(f"  bits_per_sample: {chunk.bits_per_sample}")
-            print(f"  sample_rate: {chunk.sample_rate}")
+            print(f"  bits per sample: {chunk.bits_per_sample}")
+            print(f"  sample rate: {chunk.sample_rate}")
             print(f"  channels: {chunk.channels}")
-            print(f"  extended: {chunk.extended}")
+            print(f"  byte rate: {chunk.byte_rate}")
+            print(f"  block align: {chunk.block_align}")
+            if chunk.extension == None:
+                print(f"  extended: no")
+            else:
+                print(f"  extended: {len(chunk.extension)} bytes")
+                for hex in hexdump.hexdump(chunk.extension, "generator"):
+                    print("   ", hex)
 
         elif chunk.get_name == b"data":
             print(f", len: {len(chunk.samples)}")
@@ -80,6 +87,7 @@ def wave_parse(wave_file, args):
         else:
             if isinstance(chunk, GenericChunk):
                 print(f", len: {len(chunk.datas)}")
+                dump_lines = args.dump_lines
                 if args.dump_lines != "":
                     for num, hex in enumerate(
                         hexdump.hexdump(chunk.datas, "generator")
@@ -113,7 +121,9 @@ def test_set_cue_points(fname_in, fname_out):
     """
     Test : add cue points and modify infos
     """
-    riff_chunk = wave_parse(fname_in)
+
+    fwave = builtins.open(fname_in, "rb")
+    riff_chunk = RiffChunk.from_file(fwave)
 
     # get sample rate from format chunk
     fmt = riff_chunk.get_chunk("fmt ")
@@ -134,7 +144,7 @@ def test_set_cue_points(fname_in, fname_out):
     # get or create Cue chunk
     chunk_cue = riff_chunk.get_chunk(CueChunk.HEADER_CUE)
     if not chunk_cue:
-        chunk_cue = CueChunk()
+        chunk_cue = CueChunk([])
         id_cue = 1
     else:
         id_cue = chunk_cue.cue_points[-1].id + 1

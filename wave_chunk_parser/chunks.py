@@ -108,6 +108,11 @@ class WaveFormat(Enum):
     A_LAW = 6
     MU_LAW = 7
     EXTENDED = 65534
+    UNSUPPORTED = -1
+
+    @classmethod
+    def has_value(cls, value):
+        return value in cls._value2member_map_
 
 
 class FormatChunk(Chunk):
@@ -116,9 +121,11 @@ class FormatChunk(Chunk):
     """
 
     __format: WaveFormat
-    __extended: bool
+    __extension: bytes
     __channels: int
     __sample_rate: int
+    __bytes_per_sec: int
+    __block_align: int
     __bits_per_sample: int
 
     LENGTH_CHUNK = 24
@@ -128,10 +135,12 @@ class FormatChunk(Chunk):
     def __init__(
         self,
         wave_format: WaveFormat,
-        extended: bool,
+        extension: bytes,
         channels: int,
         sample_rate: int,
         bits_per_sample: int,
+        bytes_per_sec: int = None,
+        block_align: int = None,
     ):
         """
         Creates a new instance of the format block.
@@ -142,13 +151,28 @@ class FormatChunk(Chunk):
             channels (int): The number of channels in the file.
             sample_rate (int): The sample rate.
             bits_per_sample (int): The number of bits in each sample.
+            bytes_per_sec (int): Average bytes per second. Computed from sample_rate, channels and bits_per_sample if None
+            block_align (int): Block alignment for the file. Computed from channels and bits_per_sample if None
+
         """
 
-        self.__format = wave_format
-        self.__extended = extended
+        if isinstance(wave_format, WaveFormat):
+            self.__format = wave_format.value
+        else:
+            self.__format = wave_format
+        self.__extension = extension
         self.__channels = channels
         self.__sample_rate = sample_rate
         self.__bits_per_sample = bits_per_sample
+        self.__bytes_per_sec = bytes_per_sec
+        if bytes_per_sec == None:
+            self.__bytes_per_sec = sample_rate * channels * bits_per_sample // 8
+        else:
+            self.__bytes_per_sec = bytes_per_sec
+        if block_align == None:
+            self.__block_align = channels * bits_per_sample // 8
+        else:
+            self.__block_align = block_align
 
     @classmethod
     def from_file(cls, file_handle: BinaryIO, offset: int) -> FormatChunk:
@@ -166,7 +190,14 @@ class FormatChunk(Chunk):
 
         # Read from the chunk
 
-        (handle, channels, sample_rate, _, _, bits_per_sample,) = unpack(
+        (
+            wave_format,
+            channels,
+            sample_rate,
+            bytes_per_sec,
+            block_align,
+            bits_per_sample,
+        ) = unpack(
             "<HHIIHH",
             seek_and_read(
                 file_handle,
@@ -175,14 +206,29 @@ class FormatChunk(Chunk):
             ),
         )
 
-        # Read the format
+        # Read extension
 
-        wave_format = WaveFormat(handle)
+        extension = None
+        if extended:
+            (extension_size,) = unpack(
+                "<H",
+                file_handle.read(2),
+            )
+            if extension_size:
+                extension = file_handle.read(extension_size)
+            else:
+                extension = b""
 
         # Generate our object
 
         return FormatChunk(
-            wave_format, extended, channels, sample_rate, bits_per_sample
+            wave_format,
+            extension,
+            channels,
+            sample_rate,
+            bits_per_sample,
+            bytes_per_sec,
+            block_align,
         )
 
     @property
@@ -190,7 +236,9 @@ class FormatChunk(Chunk):
         """
         Indicates the format the audio is encoded in.
         """
-        return self.__format
+        if WaveFormat.has_value(self.__format):
+            return WaveFormat(self.__format)
+        return f"{self.__format} {WaveFormat.UNSUPPORTED}"
 
     @property
     def channels(self) -> int:
@@ -218,21 +266,28 @@ class FormatChunk(Chunk):
         """
         The bytes per second this file is encoded at.
         """
-        return self.sample_rate * self.channels * self.bits_per_sample // 8
+        return self.__bytes_per_sec
 
     @property
     def block_align(self) -> int:
         """
         The block alignment for the file.
         """
-        return self.channels * self.bits_per_sample // 8
+        return self.__block_align
 
     @property
     def extended(self) -> bool:
         """
         Indicates if the header is extended or not.
         """
-        return self.__extended
+        return self.__extension != None
+
+    @property
+    def extension(self) -> bytes:
+        """
+        Raw extension.
+        """
+        return self.__extension
 
     @property
     def get_name(self) -> str:
@@ -240,26 +295,36 @@ class FormatChunk(Chunk):
 
     def to_bytes(self) -> List[bytes]:
 
-        # Sanity check
-
-        if self.extended:
-            raise ExportExtendedFormatException(
-                "We don't support converting extended format headers to binary blobs."
-            )
-
         # Build up our chunk
 
-        return pack(
+        length = (
+            self.LENGTH_STANDARD_SIZE
+            if self.__extension == None
+            else self.LENGTH_STANDARD_SIZE + 2 + len(self.__extension)
+        )
+
+        format = pack(
             "<4sIHHIIHH",
             self.HEADER_FORMAT,
-            self.LENGTH_STANDARD_SIZE,
-            self.format.value,
-            self.channels,
-            self.sample_rate,
-            self.byte_rate,
-            self.block_align,
-            self.bits_per_sample,
+            length,
+            self.__format,
+            self.__channels,
+            self.__sample_rate,
+            self.__bytes_per_sec,
+            self.__block_align,
+            self.__bits_per_sample,
         )
+
+        if self.__extension == None:
+            return format
+
+        # build extension size
+
+        ext_size = pack("<H", len(self.__extension))
+
+        # return complete chunk
+        data = b"".join([format, ext_size, self.__extension])
+        return data
 
 
 class DataChunk(Chunk):
@@ -319,14 +384,27 @@ class DataChunk(Chunk):
         raw = file_handle.read(length)
 
         # Create the object
+        #
+
+        if wave_format.bits_per_sample // 8 == 0:
+            # unsupported data format : use raw datas
+            return DataChunk(raw)
 
         sample_count = (
             length // wave_format.channels // (wave_format.bits_per_sample // 8)
         )
-        samples = np.frombuffer(
-            raw,
-            dtype=np.dtype(f"<i{wave_format.bits_per_sample // 8}"),
-        ).reshape(sample_count, wave_format.channels)
+        if wave_format.bits_per_sample // 8 == 3:
+            # use raw data of 3 bytes as sample for 24 bits
+            # [disadvantage: the samples must be converted by caller before processing]
+            samples = np.frombuffer(
+                raw,
+                dtype=np.dtype("V3"),
+            )
+        else:
+            samples = np.frombuffer(
+                raw,
+                dtype=np.dtype(f"<i{wave_format.bits_per_sample // 8}"),
+            ).reshape(sample_count, wave_format.channels)
 
         return DataChunk(samples)
 
@@ -341,7 +419,10 @@ class DataChunk(Chunk):
 
         # Generate the data section
 
-        data = self.__samples.tobytes()
+        if isinstance(self.__samples, bytes):
+            data = self.__samples
+        else:
+            data = self.__samples.tobytes()
 
         # Generate the header
 
@@ -1257,7 +1338,9 @@ class ListChunk(Chunk):
                     )
                 sub_chunks.append(current_sub_chunk)
 
-            current_offset += current_length + cls.OFFSET_CHUNK_CONTENT
+            current_offset += (
+                current_length + cls.OFFSET_CHUNK_CONTENT + current_length % 2
+            )
 
         return ListChunk(list_type, sub_chunks)
 
@@ -1697,7 +1780,9 @@ class RiffChunk(Chunk):
 
             # Cycle onto the next chunk
 
-            current_offset += current_length + cls.OFFSET_CHUNK_CONTENT
+            current_offset += (
+                current_length + cls.OFFSET_CHUNK_CONTENT + current_length % 2
+            )
 
         return RiffChunk(chunk_list)
 

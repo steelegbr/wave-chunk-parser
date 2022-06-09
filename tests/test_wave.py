@@ -75,7 +75,7 @@ class TestWaveChunk(TestCase):
 
         chunks = []
 
-        chunks.append(FormatChunk(WaveFormat.PCM, False, 2, 44100, 16))
+        chunks.append(FormatChunk(WaveFormat.PCM, None, 2, 44100, 16))
 
         timers = [
             CartTimer("INTs", 0),
@@ -141,7 +141,7 @@ class TestWaveChunk(TestCase):
 
         chunks = []
 
-        chunks.append(FormatChunk(WaveFormat.PCM, False, 2, 44100, 16))
+        chunks.append(FormatChunk(WaveFormat.PCM, None, 2, 44100, 16))
 
         with open("./tests/files/valid_no_markers.wav", "rb") as in_file:
             samples = np.memmap(
