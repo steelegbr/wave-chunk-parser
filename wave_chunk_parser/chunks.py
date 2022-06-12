@@ -1596,7 +1596,7 @@ class GenericChunk(Chunk):
     @property
     def datas(self) -> np.ndarray[np.uint8]:
         """
-        The audio sample vectors.
+        The raw datas as bytes array.
         """
         return self.__datas
 
@@ -1713,7 +1713,10 @@ class RiffChunk(Chunk):
         self.__sub_chunks = sub_chunks
 
     @classmethod
-    def from_file(cls, file_handle: BinaryIO, offset: int = 0) -> Chunk:
+    def from_file(cls, file_handle: BinaryIO, offset: int = 0, **kwargs) -> Chunk:
+
+        # chunks extension user defined via chunk header map
+        user_chunks = kwargs.get("user_chunks", {})
 
         # Sanity check
 
@@ -1749,7 +1752,10 @@ class RiffChunk(Chunk):
             (current_header, current_length) = cls.read_header(
                 file_handle, current_offset
             )
-            chunk_type = cls.CHUNK_HEADER_MAP.get(current_header)
+            # get user chunk first if any, then "standard" library chunks
+            chunk_type = user_chunks.get(current_header) or cls.CHUNK_HEADER_MAP.get(
+                current_header
+            )
 
             if chunk_type:
                 if chunk_type == DataChunk:
