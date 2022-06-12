@@ -10,7 +10,8 @@ from pathlib import Path
 import hexdump
 import builtins
 from datetime import datetime
-
+from typing import BinaryIO, List
+from struct import unpack, pack
 from wave_chunk_parser.chunks import (
     RiffChunk,
     CuePoint,
@@ -20,12 +21,65 @@ from wave_chunk_parser.chunks import (
     GenericChunk,
     InfoChunk,
     NoteChunk,
+    Chunk,
 )
+from wave_chunk_parser.utils import seek_and_read
+
+
+#
+# For testing support of user chunks :
+#
+class FactChunk(Chunk):
+    """
+    Fact chunk stores file dependent information about the contents of the WAVE file.
+
+    """
+
+    HEADER = b"fact"
+
+    __sample_length: int
+
+    def __init__(self, sample_length):
+        self.__sample_length = sample_length
+
+    @classmethod
+    def from_file(cls, file_handle: BinaryIO, offset: int) -> Chunk:
+
+        (header_str, length) = cls.read_header(file_handle, offset)
+
+        # Read and decode datas
+        (sample_length,) = unpack(
+            f"<I",
+            seek_and_read(
+                file_handle,
+                offset + cls.OFFSET_CHUNK_CONTENT,
+                length,
+            ),
+        )
+        return FactChunk(sample_length)
+
+    def to_bytes(self) -> List[bytes]:
+
+        return pack(
+            f"<4sI",
+            self.HEADER,
+            self.__sample_length,
+        )
+
+    @property
+    def get_name(self) -> str:
+        return self.HEADER
+
+    @property
+    def sample_length(self) -> int:
+        """The length of the data in samples."""
+        return self.__sample_length
 
 
 def smart_dump(args, datas):
-    """ """
+    """Hexadecimal datas dump"""
     if args.dump_lines != "":
+        num = 0
         for num, hex in enumerate(hexdump.hexdump(datas, "generator")):
             if int(args.dump_lines) != 0 and num >= int(args.dump_lines):
                 break
@@ -38,11 +92,29 @@ def wave_parse(wave_file, args):
     """
     chunks parse with wave_chunk_parser lib
     """
-    print(f'=====> Parse "{wave_file}"')
     fwave = builtins.open(wave_file, "rb")
 
-    riff_chunk = RiffChunk.from_file(fwave)
+    # build user map classes decoding chunks
+    extended_chunks = {
+        cl.HEADER: cl
+        for cl in [
+            FactChunk,
+        ]
+    }
 
+    # which file type to parse
+    if args.filetype.lower() == "all":
+        riff_form = ""
+    else:
+        riff_form = args.filetype.encode()
+
+    # read file
+    riff_chunk = RiffChunk.from_file(
+        fwave, user_chunks=extended_chunks, riff_form=riff_form
+    )
+
+    print(f'=====> Parse "{wave_file}"')
+    print(f"RIFF form : {riff_chunk.get_name}")
     for chunk in riff_chunk.sub_chunks:
         print(f"Chunk type: {chunk.get_name}", end="")
 
@@ -71,6 +143,7 @@ def wave_parse(wave_file, args):
                     f"  ID {cp.id} : position:{cp.position} , data_chunk_id:{cp.data_chunk_id} , "
                     f"chunk_start: {cp.chunk_start} , block_start:{cp.block_start} , sample_offset:{cp.sample_offset}"
                 )
+
         elif chunk.get_name == b"LIST":
 
             print(f", Type: {chunk.get_type}")
@@ -94,6 +167,9 @@ def wave_parse(wave_file, args):
                     else:
                         print(f"  Sub-Chunk : {sc.get_name}")
                         smart_dump(args, sc.datas)
+
+        elif chunk.get_name == b"fact":
+            print(f"\n  Sample length : {chunk.sample_length}")
 
         else:
             if isinstance(chunk, GenericChunk):
@@ -208,6 +284,12 @@ def main():
         description="Parse Wave file", formatter_class=RawDescriptionHelpFormatter
     )
     parser.add_argument("wavefile", nargs="*", help="Wave file")
+    parser.add_argument(
+        "--filetype",
+        "-t",
+        default="WAVE",
+        help='File type to parse (the RIFF form type). Set to "all" for parse all types , Default:%(default)s',
+    )
     parser.add_argument("--test", help="test name to execute and exit")
     parser.add_argument("--fileout", help="outfilename needed for some tests")
     parser.add_argument(
@@ -218,6 +300,12 @@ def main():
     )
     parser.add_argument(
         "--recursive", "-r", action="store_true", help="Traverse sub-folders"
+    )
+    parser.add_argument(
+        "--silent-fail",
+        "-s",
+        action="store_true",
+        help="Do not print parsing exception",
     )
 
     # parse arguments
@@ -245,7 +333,8 @@ def main():
             try:
                 wave_parse(path, args)
             except Exception as _e:
-                print("FAILED : ", _e)
+                if not args.silent_fail:
+                    print(f'FAILED parsing "{path}" : {_e}')
 
 
 if __name__ == "__main__":

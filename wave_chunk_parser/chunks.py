@@ -1683,6 +1683,7 @@ class RiffChunk(Chunk):
     The second level WAVE chunk in a RIFF file.
     """
 
+    __riff_form: bytes
     __sub_chunks: List[Chunk] = []
 
     HEADER_RIFF = b"RIFF"
@@ -1709,8 +1710,9 @@ class RiffChunk(Chunk):
     STRUCT_SUB_TYPE = "<4s"
     STRUCT_RIFF_HEADER = "<4sI4s"
 
-    def __init__(self, sub_chunks: List[Chunk]) -> None:
+    def __init__(self, sub_chunks: List[Chunk], riff_form=HEADER_WAVE) -> None:
         self.__sub_chunks = sub_chunks
+        self.__riff_form = riff_form
 
     @classmethod
     def from_file(cls, file_handle: BinaryIO, offset: int = 0, **kwargs) -> Chunk:
@@ -1718,12 +1720,16 @@ class RiffChunk(Chunk):
         # chunks extension user defined via chunk header map
         user_chunks = kwargs.get("user_chunks", {})
 
+        # RIFF form to analyze (Wave by default)
+        # if empty all RIFFs will be processed
+        riff_form = kwargs.get("riff_form", cls.HEADER_WAVE)
+
         # Sanity check
 
         (header_str, length) = cls.read_header(file_handle, offset)
 
         if not header_str == cls.HEADER_RIFF:
-            raise InvalidHeaderException("WAVE files must have a RIFF header")
+            raise InvalidHeaderException("Not a RIFF file")
 
         if not length:
             raise InvalidHeaderException(
@@ -1738,8 +1744,8 @@ class RiffChunk(Chunk):
                 file_handle, offset + cls.OFFSET_SUB_TYPE, cls.LENGTH_SUB_TYPE
             ),
         )
-        if not sub_type == cls.HEADER_WAVE:
-            raise InvalidHeaderException("This library only supports WAVE files")
+        if riff_form and not sub_type == riff_form:
+            raise InvalidHeaderException(f'Not a "{riff_form}" files')
 
         # Read in the sub-chunks
 
@@ -1790,7 +1796,7 @@ class RiffChunk(Chunk):
                 current_length + cls.OFFSET_CHUNK_CONTENT + current_length % 2
             )
 
-        return RiffChunk(chunk_list)
+        return RiffChunk(chunk_list, sub_type)
 
     @property
     def sub_chunks(self) -> Dict[str, Chunk]:
@@ -1798,7 +1804,7 @@ class RiffChunk(Chunk):
 
     @property
     def get_name(self) -> str:
-        return self.HEADER_WAVE
+        return self.__riff_form
 
     def to_bytes(self) -> List[bytes]:
 
@@ -1833,7 +1839,7 @@ class RiffChunk(Chunk):
         lengths = [len(chunk) for chunk in chunk_bytes]
         length = reduce(lambda a, b: a + b, lengths) + self.LENGTH_SUB_TYPE
         header = pack(
-            self.STRUCT_RIFF_HEADER, self.HEADER_RIFF, length, self.HEADER_WAVE
+            self.STRUCT_RIFF_HEADER, self.HEADER_RIFF, length, self.__riff_form
         )
         chunk_bytes.insert(0, header)
 
