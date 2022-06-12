@@ -6,7 +6,7 @@ Parse Wave file
 import sys
 import os
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-import glob
+from pathlib import Path
 import hexdump
 import builtins
 from datetime import datetime
@@ -216,6 +216,9 @@ def main():
         default="2",
         help="limit number of lines for datas dumped  (default:%(default)s)",
     )
+    parser.add_argument(
+        "--recursive", "-r", action="store_true", help="Traverse sub-folders"
+    )
 
     # parse arguments
     args = parser.parse_args()
@@ -234,22 +237,15 @@ def main():
         test_set_cue_points(args.wavefile[0], args.fileout)
         return
 
-    for glob_name in args.wavefile:
-        glob_name = glob_name.rstrip("\r\n")
-        for fname in glob.glob(glob_name):
+    # files parsing
+    for arg_fname in args.wavefile:
+        basepath, basename = os.path.split(arg_fname)
+        glob_func = Path(basepath).rglob if args.recursive else Path(basepath).glob
+        for path in glob_func(basename):
             try:
-                if os.path.isfile(fname):
-                    _, ext = os.path.splitext(fname)
-                    if ext.lower() == ".wav":
-                        wave_parse(fname, args)
-                elif os.path.isdir(fname):
-                    for root, _, files in os.walk(fname, topdown=False):
-                        for fname in files:
-                            _, ext = os.path.splitext(fname)
-                            if ext.lower() == ".wav":
-                                wave_parse(os.path.join(root, fname), args)
+                wave_parse(path, args)
             except Exception as _e:
-                print("FAILED:", _e)
+                print("FAILED : ", _e)
 
 
 if __name__ == "__main__":
