@@ -63,7 +63,7 @@ def decode_string(byte_string: bytes, encoding: str = "ASCII") -> str:
     if not byte_string:
         return None
 
-    decoded = byte_string.decode(encoding)
+    decoded = byte_string.decode(encoding, "replace")
     return decoded.replace("\x00", "")
 
 

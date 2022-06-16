@@ -174,7 +174,7 @@ class TestCartChunk(TestCase):
 
         # Arrange
 
-        with open(json_filename, "r") as json_file:
+        with open(json_filename, "r", encoding="utf8") as json_file:
             fields = json.load(json_file)
 
         timers = []
