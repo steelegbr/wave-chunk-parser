@@ -29,6 +29,7 @@ from wave_chunk_parser.chunks import (
     WaveFormat,
 )
 from datetime import datetime
+import io
 import numpy as np
 from parameterized import parameterized
 from typing import List
@@ -163,6 +164,33 @@ class TestWaveChunk(TestCase):
 
         self.assertIsNotNone(blob)
         self.assertEqual(blob, expected_blob)
+
+    @parameterized.expand(
+        [
+            ("./tests/files/valid_no_markers.wav",),
+            ("./tests/files/valid_with_markers.wav",),
+            ("./tests/files/valid_with_odd_len_chunk.wav",)
+        ]
+    )
+    def test_reencode_wave(self, file_name: str):
+        """
+        A WAVE file can be decoded and re-encoded to the original bytes.
+        """
+        
+        # Arrange
+
+        with open(file_name, "rb") as in_file:
+            in_blob = in_file.read()
+
+        in_riff = RiffChunk.from_file(io.BytesIO(in_blob))
+
+        # Act
+
+        out_blob = in_riff.to_bytes()
+        
+        # Assert
+        
+        self.assertEqual(in_blob, out_blob)
 
     def test_riff_bad_header(self):
         """
