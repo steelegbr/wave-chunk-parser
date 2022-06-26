@@ -100,10 +100,12 @@ def word_align(func):
     Ensures the bytestring returned by the decorated function is word-aligned,
     i.e. has even length, by appending a null byte if needed.
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         blob = func(*args, **kwargs)
         if len(blob) % 2 != 0:
             blob += b"\x00"
         return blob
+
     return wrapper

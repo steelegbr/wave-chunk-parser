@@ -33,7 +33,7 @@ from wave_chunk_parser.utils import (
     encode_string,
     null_terminate,
     seek_and_read,
-    word_align
+    word_align,
 )
 
 
