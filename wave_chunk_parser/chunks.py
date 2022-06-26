@@ -33,6 +33,7 @@ from wave_chunk_parser.utils import (
     encode_string,
     null_terminate,
     seek_and_read,
+    word_align
 )
 
 
@@ -293,6 +294,7 @@ class FormatChunk(Chunk):
     def get_name(self) -> str:
         return self.HEADER_FORMAT
 
+    @word_align
     def to_bytes(self) -> List[bytes]:
 
         # Build up our chunk
@@ -415,6 +417,7 @@ class DataChunk(Chunk):
         """
         return self.__samples
 
+    @word_align
     def to_bytes(self) -> List[bytes]:
 
         # Generate the data section
@@ -740,6 +743,7 @@ class CartChunk(Chunk):
     def get_name(self) -> str:
         return self.HEADER_CART
 
+    @word_align
     def to_bytes(self) -> List[bytes]:
 
         # Explode out our list of timers
@@ -994,6 +998,7 @@ class LabelChunk(Chunk):
     def get_name(self) -> str:
         return self.HEADER_LABEL  # skipcq: TCV-001
 
+    @word_align
     def to_bytes(self) -> List[bytes]:
         encoded_label = null_terminate(encode_string(self.__label), True)
         encoded_label_length = len(encoded_label)
@@ -1063,6 +1068,7 @@ class NoteChunk(Chunk):
     def get_name(self) -> str:
         return self.HEADER_NOTE  # skipcq: TCV-001
 
+    @word_align
     def to_bytes(self) -> List[bytes]:
         encoded_note = null_terminate(encode_string(self.__note), True)
         encoded_note_length = len(encoded_note)
@@ -1154,6 +1160,7 @@ class LabeledTextChunk(Chunk):
     def get_name(self) -> str:
         return self.HEADER_LABEL  # skipcq: TCV-001
 
+    @word_align
     def to_bytes(self) -> List[bytes]:
         encoded_label = null_terminate(encode_string(self.__label), True)
         encoded_label_length = len(encoded_label)
@@ -1344,6 +1351,7 @@ class ListChunk(Chunk):
 
         return ListChunk(list_type, sub_chunks)
 
+    @word_align
     def to_bytes(self) -> List[bytes]:
         encoded_sub_chunks = [sub_chunk.to_bytes() for sub_chunk in self.sub_chunks]
         combined_sub_chunks = b"".join(encoded_sub_chunks)
@@ -1479,6 +1487,7 @@ class CuePoint(Chunk):
     def get_name(self) -> str:
         pass  # skipcq: TCV-001
 
+    @word_align
     def to_bytes(self) -> List[bytes]:
         return pack(
             "<II4sIII",
@@ -1550,6 +1559,7 @@ class CueChunk(Chunk):
     def cue_points(self) -> List[CuePoint]:
         return self.__cue_points
 
+    @word_align
     def to_bytes(self) -> List[bytes]:
         encoded_cue_points = [cue_point.to_bytes() for cue_point in self.cue_points]
         cue_point_count = len(self.cue_points)
@@ -1600,6 +1610,7 @@ class GenericChunk(Chunk):
         """
         return self.__datas
 
+    @word_align
     def to_bytes(self) -> List[bytes]:
 
         # Generate the data section
@@ -1652,6 +1663,7 @@ class InfoChunk(Chunk):
 
         return InfoChunk(header_str, decode_string(raw_info))
 
+    @word_align
     def to_bytes(self) -> List[bytes]:
 
         # Generate raw string
@@ -1806,6 +1818,7 @@ class RiffChunk(Chunk):
     def get_name(self) -> str:
         return self.__riff_form
 
+    @word_align
     def to_bytes(self) -> List[bytes]:
 
         # Check we have at least a format and data chunk

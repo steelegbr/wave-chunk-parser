@@ -14,6 +14,7 @@
    limitations under the License.
 """
 
+from functools import wraps
 from typing import BinaryIO
 from unidecode import unidecode
 
@@ -92,3 +93,17 @@ def null_terminate(string: str, make_even_length=False) -> str:
     if make_even_length and len(terminated) % 2:
         return terminated + b"\x00"
     return terminated
+
+
+def word_align(func):
+    """
+    Ensures the bytestring returned by the decorated function is word-aligned,
+    i.e. has even length, by appending a null byte if needed.
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        blob = func(*args, **kwargs)
+        if len(blob) % 2 != 0:
+            blob += b"\x00"
+        return blob
+    return wrapper
