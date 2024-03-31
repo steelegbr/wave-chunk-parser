@@ -526,6 +526,7 @@ class CartChunk(Chunk):
     HEADER_CART = b"cart"
     DEFAULT_VERSION = b"0101"
     FORMAT_DATE_TIME = "%Y/%m/%d%H:%M:%S"
+    FORMAT_DATE_REAPER = "%Y-%m-%d"
     UNPACK_STRING = (
         "<4s64s64s64s64s64s64s64s18s18s64s64s64si4sI4sI4sI4sI4sI4sI4sI4sI276s1024s"
     )
@@ -712,10 +713,23 @@ class CartChunk(Chunk):
 
         # Decode the start/end datetime
 
-        start_date = datetime.strptime(
-            decode_string(start_date_str), cls.FORMAT_DATE_TIME
-        )
-        end_date = datetime.strptime(decode_string(end_date_str), cls.FORMAT_DATE_TIME)
+        try:
+            start_date = datetime.strptime(
+                decode_string(start_date_str), cls.FORMAT_DATE_TIME
+            )
+            end_date = datetime.strptime(
+                decode_string(end_date_str), cls.FORMAT_DATE_TIME
+            )
+        except ValueError:
+            # Reaper can encode the date in a different format
+
+            start_date = datetime(1900, 1, 1, 0, 0, 0)
+            end_date = datetime(2099, 12, 31, 23, 59, 59)
+
+            if decode_string(start_date_str):
+                start_date = datetime.strptime(
+                    decode_string(start_date_str), cls.FORMAT_DATE_REAPER
+                )
 
         # Build the chunk
 
