@@ -68,6 +68,48 @@ class TestCartChunk(TestCase):
                 "http://www.example.com/",
                 "A load of junk goes in here.\r\n",
             ),
+            (
+                "./tests/files/reaper_01.blob",
+                0,
+                "0101",
+                "test",
+                "SamMJ",
+                "",
+                "",
+                "",
+                "",
+                "",
+                datetime(1900, 1, 1, 0, 0),
+                datetime(2099, 12, 31, 23, 59, 59),
+                "",
+                "",
+                "",
+                0,
+                [],
+                "",
+                None,
+            ),
+            (
+                "./tests/files/reaper_02.blob",
+                0,
+                "0101",
+                "test",
+                "SamMJ",
+                "",
+                "",
+                "",
+                "",
+                "",
+                datetime(2024, 3, 22, 0, 0),
+                datetime(2099, 12, 31, 23, 59, 59),
+                "",
+                "",
+                "",
+                0,
+                [],
+                "",
+                None,
+            ),
         ]
     )
     def test_read_valid_data_chunk(
@@ -124,7 +166,7 @@ class TestCartChunk(TestCase):
             self.assertEqual(chunk.ref_0db, expected_ref_0db)
             self.assertEqual(len(chunk.timers), len(expected_timers))
 
-            for (expected_name, expected_time) in expected_timers:
+            for expected_name, expected_time in expected_timers:
                 self.assertTrue(
                     [
                         timer.name == expected_name and timer.time == expected_time
