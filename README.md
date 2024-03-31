@@ -39,3 +39,11 @@ We need openblas to make Numpy work on macOS:
     pip uninstall numpy
     brew install openblas
     OPENBLAS="$(brew --prefix openblas)" pip install numpy --no-cache-dir
+
+# Building the package for deployment
+
+To build the package for deployment:
+
+    poetry run python setup.py bdist_wheel
+    poetry run twine upload --repository testpypi dist/*
+    poetry run twine upload --repository pypi dist/*
