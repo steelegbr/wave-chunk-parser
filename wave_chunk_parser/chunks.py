@@ -1171,7 +1171,7 @@ class LabeledTextChunk(Chunk):
             encoded_label_length + self.OFFSET_LABEL,
             self.__id,
             self.__sample_length,
-            self.__purpose,
+            str.encode(self.__purpose),
             self.__country,
             self.__language,
             self.__dialect,

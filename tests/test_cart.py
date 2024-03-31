@@ -124,7 +124,7 @@ class TestCartChunk(TestCase):
             self.assertEqual(chunk.ref_0db, expected_ref_0db)
             self.assertEqual(len(chunk.timers), len(expected_timers))
 
-            for (expected_name, expected_time) in expected_timers:
+            for expected_name, expected_time in expected_timers:
                 self.assertTrue(
                     [
                         timer.name == expected_name and timer.time == expected_time
