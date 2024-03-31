@@ -59,7 +59,6 @@ class TestLabeledTextChunk(TestCase):
             id, sample_length, purpose, country, language, dialect, codepage, label
         )
         actual_bytes = chunk.to_bytes()
-        print(actual_bytes)
 
         # Assert
 
