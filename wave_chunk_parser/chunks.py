@@ -399,7 +399,7 @@ class DataChunk(Chunk):
             # use raw data of 3 bytes as sample for 24 bits
             # [disadvantage: the samples must be converted by caller before processing]
             samples = np.frombuffer(
-                raw,
+                raw[0 : (len(raw) - (len(raw) % 3))],
                 dtype=np.dtype("V3"),
             )
         else:

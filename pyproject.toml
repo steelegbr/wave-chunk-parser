@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wave-chunk-parser"
-version = "1.5.0"
+version = "1.5.1"
 description = ""
 authors = ["Marc Steele <steelegbr@gmail.com>"]
 readme = "README.md"
